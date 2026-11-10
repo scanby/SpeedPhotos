@@ -166,6 +166,7 @@ namespace SpeedPhotos.App
                 AddCapabilityOptions(PrintQualityCombo, _printerCapabilities.PageResolutionCapability);
                 AddDuplexOptions(_printerCapabilities.DuplexingCapability);
                 AddCapabilityOptions(ColorModeCombo, _printerCapabilities.OutputColorCapability);
+                PaperCombo.IsEnabled = PaperSizeCombo.Items.Count == 0;
                 PrintTicket defaultTicket = _selectedPrinter.DefaultPrintTicket ?? new PrintTicket();
                 SetDefaultCapability(PaperSizeCombo, defaultTicket.PageMediaSize);
                 SetDefaultCapability(PaperTypeCombo, defaultTicket.PageMediaType);
@@ -215,6 +216,7 @@ namespace SpeedPhotos.App
         {
             PaperSizeCombo.Items.Clear(); PaperTypeCombo.Items.Clear(); PrintQualityCombo.Items.Clear();
             DuplexCombo.Items.Clear(); ColorModeCombo.Items.Clear();
+            PaperCombo.IsEnabled = true;
             DuplexCheck.IsChecked = false; DuplexCheck.IsEnabled = false; DuplexCombo.IsEnabled = false;
         }
 
