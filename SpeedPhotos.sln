@@ -1,0 +1,54 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28701.123
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{60DC8134-EBA5-43B8-BCC9-BB4BC16C2548}") = "SpeedPhotos.App", "src\SpeedPhotos.App\SpeedPhotos.App.csproj", "{A1000001-1111-4111-8111-000000000001}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeedPhotos.Core", "src\SpeedPhotos.Core\SpeedPhotos.Core.csproj", "{A1000002-1111-4111-8111-000000000002}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeedPhotos.LayoutEngine", "src\SpeedPhotos.LayoutEngine\SpeedPhotos.LayoutEngine.csproj", "{A1000003-1111-4111-8111-000000000003}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeedPhotos.Imaging", "src\SpeedPhotos.Imaging\SpeedPhotos.Imaging.csproj", "{A1000004-1111-4111-8111-000000000004}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeedPhotos.Printing", "src\SpeedPhotos.Printing\SpeedPhotos.Printing.csproj", "{A1000005-1111-4111-8111-000000000005}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeedPhotos.Export", "src\SpeedPhotos.Export\SpeedPhotos.Export.csproj", "{A1000006-1111-4111-8111-000000000006}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeedPhotos.Infrastructure", "src\SpeedPhotos.Infrastructure\SpeedPhotos.Infrastructure.csproj", "{A1000007-1111-4111-8111-000000000007}"
+EndProject
+Global
+ GlobalSection(SolutionConfigurationPlatforms) = preSolution
+  Debug|Any CPU = Debug|Any CPU
+  Release|Any CPU = Release|Any CPU
+ EndGlobalSection
+ GlobalSection(ProjectConfigurationPlatforms) = postSolution
+    {A1000001-1111-4111-8111-000000000001}.Debug|Any CPU.ActiveCfg = Debug|AnyCPU
+    {A1000001-1111-4111-8111-000000000001}.Debug|Any CPU.Build.0 = Debug|AnyCPU
+    {A1000001-1111-4111-8111-000000000001}.Release|Any CPU.ActiveCfg = Release|AnyCPU
+    {A1000001-1111-4111-8111-000000000001}.Release|Any CPU.Build.0 = Release|AnyCPU
+    {A1000002-1111-4111-8111-000000000002}.Debug|Any CPU.ActiveCfg = Debug|AnyCPU
+    {A1000002-1111-4111-8111-000000000002}.Debug|Any CPU.Build.0 = Debug|AnyCPU
+    {A1000002-1111-4111-8111-000000000002}.Release|Any CPU.ActiveCfg = Release|AnyCPU
+    {A1000002-1111-4111-8111-000000000002}.Release|Any CPU.Build.0 = Release|AnyCPU
+    {A1000003-1111-4111-8111-000000000003}.Debug|Any CPU.ActiveCfg = Debug|AnyCPU
+    {A1000003-1111-4111-8111-000000000003}.Debug|Any CPU.Build.0 = Debug|AnyCPU
+    {A1000003-1111-4111-8111-000000000003}.Release|Any CPU.ActiveCfg = Release|AnyCPU
+    {A1000003-1111-4111-8111-000000000003}.Release|Any CPU.Build.0 = Release|AnyCPU
+    {A1000004-1111-4111-8111-000000000004}.Debug|Any CPU.ActiveCfg = Debug|AnyCPU
+    {A1000004-1111-4111-8111-000000000004}.Debug|Any CPU.Build.0 = Debug|AnyCPU
+    {A1000004-1111-4111-8111-000000000004}.Release|Any CPU.ActiveCfg = Release|AnyCPU
+    {A1000004-1111-4111-8111-000000000004}.Release|Any CPU.Build.0 = Release|AnyCPU
+    {A1000005-1111-4111-8111-000000000005}.Debug|Any CPU.ActiveCfg = Debug|AnyCPU
+    {A1000005-1111-4111-8111-000000000005}.Debug|Any CPU.Build.0 = Debug|AnyCPU
+    {A1000005-1111-4111-8111-000000000005}.Release|Any CPU.ActiveCfg = Release|AnyCPU
+    {A1000005-1111-4111-8111-000000000005}.Release|Any CPU.Build.0 = Release|AnyCPU
+    {A1000006-1111-4111-8111-000000000006}.Debug|Any CPU.ActiveCfg = Debug|AnyCPU
+    {A1000006-1111-4111-8111-000000000006}.Debug|Any CPU.Build.0 = Debug|AnyCPU
+    {A1000006-1111-4111-8111-000000000006}.Release|Any CPU.ActiveCfg = Release|AnyCPU
+    {A1000006-1111-4111-8111-000000000006}.Release|Any CPU.Build.0 = Release|AnyCPU
+    {A1000007-1111-4111-8111-000000000007}.Debug|Any CPU.ActiveCfg = Debug|AnyCPU
+    {A1000007-1111-4111-8111-000000000007}.Debug|Any CPU.Build.0 = Debug|AnyCPU
+    {A1000007-1111-4111-8111-000000000007}.Release|Any CPU.ActiveCfg = Release|AnyCPU
+    {A1000007-1111-4111-8111-000000000007}.Release|Any CPU.Build.0 = Release|AnyCPU
+ EndGlobalSection
+EndGlobal
