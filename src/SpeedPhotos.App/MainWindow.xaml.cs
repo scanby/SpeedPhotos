@@ -81,50 +81,84 @@ namespace SpeedPhotos.App
             bool keepAspect = AspectCombo.SelectedIndex == 0;
             if (hasWidth || hasHeight)
             {
-                // Con una sola dimensión definida, cada foto calcula su otra medida con SU propia proporción.
-                // Se empaquetan filas: ancho fijo llena columnas; alto fijo aprovecha el ancho disponible.
-                int photoIndex = 0;
-                int page = 0;
-                double y = margin;
-                while (photoIndex < _photos.Count)
+                // Empaquetamiento MaxRects: busca el mejor espacio libre disponible en cualquier hoja.
+                // Ordenar primero las piezas grandes reduce los huecos difíciles de aprovechar.
+                var items = new List<LayoutItem>();
+                for (int i = 0; i < _photos.Count; i++)
                 {
-                    double x = margin;
-                    double rowHeight = 0;
-                    bool placedInRow = false;
-                    while (photoIndex < _photos.Count)
+                    PhotoItem photo = _photos[i];
+                    double ratio = (double)photo.PixelWidth / Math.Max(1, photo.PixelHeight);
+                    double cellW = hasWidth ? width : height * ratio;
+                    double cellH = hasHeight ? height : width / ratio;
+                    if (cellW > usableW + 0.0001 || cellH > usableH + 0.0001)
                     {
-                        PhotoItem photo = _photos[photoIndex];
-                        double ratio = (double)photo.PixelWidth / Math.Max(1, photo.PixelHeight);
-                        double cellW = hasWidth ? width : height * ratio;
-                        double cellH = hasHeight ? height : width / ratio;
-                        if (cellW > usableW || cellH > usableH)
+                        MessageBox.Show("La fotografía " + photo.FileName + " no cabe en el papel con la medida indicada.");
+                        return;
+                    }
+                    items.Add(new LayoutItem { PhotoIndex = i, Width = cellW, Height = cellH });
+                }
+                items.Sort(delegate(LayoutItem a, LayoutItem b)
+                {
+                    int bySide = Math.Max(b.Width, b.Height).CompareTo(Math.Max(a.Width, a.Height));
+                    return bySide != 0 ? bySide : (b.Width * b.Height).CompareTo(a.Width * a.Height);
+                });
+
+                var pages = new List<List<FreeRectangle>>();
+                foreach (LayoutItem item in items)
+                {
+                    double packedW = item.Width + gap;
+                    double packedH = item.Height + gap;
+                    int bestPage = -1, bestRect = -1;
+                    double bestShortSide = Double.MaxValue, bestLongSide = Double.MaxValue;
+
+                    // Busca el encaje más ajustado entre todos los espacios libres de todas las hojas.
+                    for (int p = 0; p < pages.Count; p++)
+                    {
+                        for (int r = 0; r < pages[p].Count; r++)
                         {
-                            MessageBox.Show("La fotografía " + photo.FileName + " no cabe en el papel con la medida indicada.");
+                            FreeRectangle free = pages[p][r];
+                            if (packedW <= free.Width + 0.0001 && packedH <= free.Height + 0.0001)
+                            {
+                                double leftoverW = free.Width - packedW;
+                                double leftoverH = free.Height - packedH;
+                                double shortSide = Math.Min(leftoverW, leftoverH);
+                                double longSide = Math.Max(leftoverW, leftoverH);
+                                if (shortSide < bestShortSide ||
+                                    (Math.Abs(shortSide - bestShortSide) < 0.0001 && longSide < bestLongSide))
+                                {
+                                    bestShortSide = shortSide;
+                                    bestLongSide = longSide;
+                                    bestPage = p;
+                                    bestRect = r;
+                                }
+                            }
+                        }
+                    }
+
+                    if (bestPage < 0)
+                    {
+                        pages.Add(new List<FreeRectangle> {
+                            new FreeRectangle { X = margin, Y = margin, Width = usableW + gap, Height = usableH + gap }
+                        });
+                        bestPage = pages.Count - 1;
+                        bestRect = 0;
+                        if (packedW > usableW + gap + 0.0001 || packedH > usableH + gap + 0.0001)
+                        {
+                            MessageBox.Show("No fue posible ubicar la fotografía " + _photos[item.PhotoIndex].FileName + ".");
                             return;
                         }
-                        if (x > margin && x + cellW > margin + usableW + 0.0001) break;
-                        if (y + Math.Max(rowHeight, cellH) > margin + usableH + 0.0001)
-                        {
-                            if (placedInRow) break;
-                            page++;
-                            y = margin;
-                            x = margin;
-                            rowHeight = 0;
-                        }
-                        _placements.Add(new PhotoPlacement { PhotoIndex = photoIndex, Page = page, X = x, Y = y, Width = cellW, Height = cellH });
-                        x += cellW + gap;
-                        rowHeight = Math.Max(rowHeight, cellH);
-                        placedInRow = true;
-                        photoIndex++;
                     }
-                    if (placedInRow) y += rowHeight + gap;
-                    else
-                    {
-                        page++;
-                        y = margin;
-                    }
+
+                    FreeRectangle chosen = pages[bestPage][bestRect];
+                    _placements.Add(new PhotoPlacement {
+                        PhotoIndex = item.PhotoIndex, Page = bestPage,
+                        X = chosen.X, Y = chosen.Y, Width = item.Width, Height = item.Height
+                    });
+
+                    // Divide los rectángulos libres que se cruzan con la pieza recién colocada.
+                    SplitFreeRectangles(pages[bestPage], chosen, packedW, packedH);
                 }
-                _pageCount = page + 1;
+                _pageCount = pages.Count;
             }
             else
             {
@@ -170,6 +204,49 @@ namespace SpeedPhotos.App
             StatusText.Text = _photos.Count + " fotografías distribuidas en " + _pageCount + " hoja(s). " +
                 (hasWidth || hasHeight ? "Medida de referencia: " + (hasWidth ? width.ToString("0.##") + " cm de ancho" : height.ToString("0.##") + " cm de alto") + "." : "Reparto optimizado entre las hojas solicitadas.") +
                 (keepAspect ? " Proporción original conservada." : " Ajuste exacto seleccionado.");
+        }
+
+        private static void SplitFreeRectangles(List<FreeRectangle> freeRects, FreeRectangle used, double usedW, double usedH)
+        {
+            var result = new List<FreeRectangle>();
+            foreach (FreeRectangle free in freeRects)
+            {
+                if (used.X >= free.X + free.Width - 0.0001 ||
+                    used.X + usedW <= free.X + 0.0001 ||
+                    used.Y >= free.Y + free.Height - 0.0001 ||
+                    used.Y + usedH <= free.Y + 0.0001)
+                {
+                    result.Add(free);
+                    continue;
+                }
+
+                if (used.X > free.X + 0.0001)
+                    result.Add(new FreeRectangle { X = free.X, Y = free.Y, Width = used.X - free.X, Height = free.Height });
+                if (used.X + usedW < free.X + free.Width - 0.0001)
+                    result.Add(new FreeRectangle { X = used.X + usedW, Y = free.Y, Width = free.X + free.Width - (used.X + usedW), Height = free.Height });
+                if (used.Y > free.Y + 0.0001)
+                    result.Add(new FreeRectangle { X = free.X, Y = free.Y, Width = free.Width, Height = used.Y - free.Y });
+                if (used.Y + usedH < free.Y + free.Height - 0.0001)
+                    result.Add(new FreeRectangle { X = free.X, Y = used.Y + usedH, Width = free.Width, Height = free.Y + free.Height - (used.Y + usedH) });
+            }
+
+            // Elimina espacios contenidos en otros para evitar evaluaciones redundantes.
+            for (int i = result.Count - 1; i >= 0; i--)
+            {
+                bool contained = false;
+                for (int j = 0; j < result.Count; j++)
+                {
+                    if (i == j) continue;
+                    FreeRectangle a = result[i], b = result[j];
+                    if (a.X >= b.X - 0.0001 && a.Y >= b.Y - 0.0001 &&
+                        a.X + a.Width <= b.X + b.Width + 0.0001 &&
+                        a.Y + a.Height <= b.Y + b.Height + 0.0001)
+                    { contained = true; break; }
+                }
+                if (contained) result.RemoveAt(i);
+            }
+            freeRects.Clear();
+            freeRects.AddRange(result);
         }
 
         private void RenderCurrentPage()
@@ -229,6 +306,21 @@ namespace SpeedPhotos.App
         public BitmapImage Thumbnail { get; set; }
         public int PixelWidth { get; set; }
         public int PixelHeight { get; set; }
+    }
+
+    internal class LayoutItem
+    {
+        public int PhotoIndex { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+    }
+
+    internal class FreeRectangle
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
     }
 
     internal class PhotoPlacement
