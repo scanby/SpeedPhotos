@@ -136,8 +136,8 @@ namespace SpeedPhotos.App
                 }
 
                 Version current = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-                string message = "Hay una nueva versión disponible.\\n\\nVersión instalada: " + current +
-                    "\\nNueva versión: " + update.Version + "\\n\\n¿Deseas descargar e instalar la actualización?";
+                string message = "Hay una nueva versión disponible.\n\nVersión instalada: " + current +
+                    "\nNueva versión: " + update.Version + "\n\n¿Deseas descargar e instalar la actualización?";
                 if (MessageBox.Show(this, message, "Actualización disponible",
                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 {
@@ -159,7 +159,7 @@ namespace SpeedPhotos.App
             catch (Exception ex)
             {
                 StatusText.Text = "No se pudo completar la actualización.";
-                MessageBox.Show(this, "No fue posible buscar o instalar actualizaciones.\\n\\n" + ex.Message,
+                MessageBox.Show(this, "No fue posible buscar o instalar actualizaciones.\n\n" + ex.Message,
                     "SpeedPhotos - Actualizaciones", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             finally
