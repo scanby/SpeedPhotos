@@ -4,9 +4,26 @@
       <TextBlock Text="SpeedPhotos" Foreground="White" FontSize="23" FontWeight="Bold" VerticalAlignment="Center"/>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
         <Button Content="＋ Importar fotografías" Padding="14,8" Margin="8,0,0,0" Click="ImportPhotos_Click"/>
-        <Button Content="Limpiar selección" Padding="14,8" Margin="8,0,0,0" Click="ClearPhotos_Click"/>
+        <Button Content="🖨 Impresora" Padding="14,8" Margin="8,0,0,0" Click="TogglePrintSettings_Click"/><Button Content="Limpiar selección" Padding="14,8" Margin="8,0,0,0" Click="ClearPhotos_Click"/>
       </StackPanel>
     </DockPanel></Border>
+    <Border x:Name="PrintSettingsPanel" DockPanel.Dock="Top" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="0,0,0,1" Padding="14" Visibility="Collapsed">
+      <StackPanel>
+        <WrapPanel VerticalAlignment="Center">
+          <StackPanel Width="210" Margin="0,0,12,8"><TextBlock Text="Impresora"/><ComboBox x:Name="PrinterCombo" Margin="0,4,0,0" Padding="5" SelectionChanged="PrinterCombo_SelectionChanged"/></StackPanel>
+          <StackPanel Width="130" Margin="0,0,12,8"><TextBlock Text="Tamaño de papel"/><ComboBox x:Name="PaperSizeCombo" Margin="0,4,0,0" Padding="5"/></StackPanel>
+          <StackPanel Width="145" Margin="0,0,12,8"><TextBlock Text="Tipo de papel"/><ComboBox x:Name="PaperTypeCombo" Margin="0,4,0,0" Padding="5"/></StackPanel>
+          <StackPanel Width="145" Margin="0,0,12,8"><TextBlock Text="Calidad"/><ComboBox x:Name="PrintQualityCombo" Margin="0,4,0,0" Padding="5"/></StackPanel>
+          <StackPanel Width="145" Margin="0,0,12,8"><TextBlock Text="Modo de color"/><ComboBox x:Name="ColorModeCombo" Margin="0,4,0,0" Padding="5" SelectionChanged="ColorModeCombo_SelectionChanged"/></StackPanel>
+        </WrapPanel>
+        <WrapPanel VerticalAlignment="Center">
+          <CheckBox x:Name="DuplexCheck" Content="Impresión doble cara" VerticalAlignment="Center" Margin="0,0,12,8" IsEnabled="False"/>
+          <StackPanel Width="170" Margin="0,0,12,8"><TextBlock Text="Giro de hoja"/><ComboBox x:Name="DuplexCombo" Margin="0,4,0,0" Padding="5" IsEnabled="False"/></StackPanel>
+          <Button Content="Imprimir composición" Padding="14,7" Margin="0,0,12,8" Background="#2563EB" Foreground="White" BorderThickness="0" Click="PrintNow_Click"/>
+          <TextBlock x:Name="PrinterStatusText" Text="Selecciona una impresora para consultar sus opciones." Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,0,8" TextWrapping="Wrap"/>
+        </WrapPanel>
+      </StackPanel>
+    </Border>
     <Border x:Name="SelectionToolbar" DockPanel.Dock="Bottom" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="0,1,0,0" Padding="12,9" Visibility="Collapsed"><StackPanel Orientation="Horizontal"><TextBlock Text="Imagen seleccionada:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/><Button Content="Girar 90°" Padding="12,6" Margin="0,0,6,0" Click="RotateSelected_Click"/><TextBlock Text="Copias:" VerticalAlignment="Center" Margin="8,0,3,0"/><TextBox x:Name="CopiesText" Text="1" Width="42" Padding="5" VerticalContentAlignment="Center" Margin="0,0,6,0"/><Button Content="Duplicar" Padding="12,6" Margin="0,0,6,0" Click="DuplicateSelected_Click"/><Button Content="Eliminar" Padding="12,6" Margin="0,0,18,0" Background="#FEE2E2" Foreground="#991B1B" Click="DeleteSelected_Click"/><TextBlock Text="Mover a hoja:" VerticalAlignment="Center" Margin="0,0,5,0"/><ComboBox x:Name="MovePageCombo" Width="90" Padding="4" Margin="0,0,6,0"/><Button Content="Mover" Padding="12,6" Click="MoveSelectedToPage_Click"/><TextBlock Text="Arrastra la fotografía para reubicarla dentro de la hoja." Foreground="#64748B" VerticalAlignment="Center" Margin="18,0,0,0"/></StackPanel></Border><StatusBar DockPanel.Dock="Bottom"><StatusBarItem><TextBlock x:Name="StatusText" Text="Listo. Importa fotografías para comenzar."/></StatusBarItem></StatusBar>
     <Grid Margin="16">
       <Grid.ColumnDefinitions><ColumnDefinition Width="250"/><ColumnDefinition Width="*"/><ColumnDefinition Width="260"/></Grid.ColumnDefinitions>
