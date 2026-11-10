@@ -66,10 +66,16 @@ namespace SpeedPhotos.App
             double width = 0, height = 0, margin, gap;
             bool hasWidth = !String.IsNullOrWhiteSpace(PhotoWidthText.Text);
             bool hasHeight = !String.IsNullOrWhiteSpace(PhotoHeightText.Text);
-            if ((hasWidth && !ReadPositive(PhotoWidthText.Text, out width)) ||
-                (hasHeight && !ReadPositive(PhotoHeightText.Text, out height)) ||
-                !ReadNonNegative(MarginText.Text, out margin) || !ReadNonNegative(GapText.Text, out gap))
-            { MessageBox.Show("Revisa las medidas, márgenes y separación. Las dimensiones pueden quedar vacías, pero no contener valores inválidos.", "Configuración no válida"); return; }
+            string invalidField = null;
+            if (hasWidth && (!ReadPositive(PhotoWidthText.Text, out width))) invalidField = "Ancho de fotografía";
+            else if (hasHeight && (!ReadPositive(PhotoHeightText.Text, out height))) invalidField = "Alto de fotografía";
+            else if (!ReadNonNegative(MarginText.Text, out margin)) invalidField = "Margen de hoja";
+            else if (!ReadNonNegative(GapText.Text, out gap)) invalidField = "Separación";
+            if (invalidField != null)
+            {
+                MessageBox.Show("El valor del campo '" + invalidField + "' no es válido. Usa un número mayor que cero para ancho y alto, y un número igual o mayor que cero para margen y separación. Puedes usar coma o punto decimal.", "Configuración no válida");
+                return;
+            }
             if (!hasWidth) width = 0;
             if (!hasHeight) height = 0;
 
@@ -446,10 +452,30 @@ namespace SpeedPhotos.App
             }
         }
 
+        private static bool TryReadNumber(string text, out double value)
+        {
+            value = 0;
+            if (String.IsNullOrWhiteSpace(text)) return false;
+            string normalized = text.Trim().Replace(" ", "");
+            if (normalized.Contains(",") && normalized.Contains("."))
+            {
+                int comma = normalized.LastIndexOf(',');
+                int dot = normalized.LastIndexOf('.');
+                if (comma > dot) normalized = normalized.Replace(".", "").Replace(',', '.');
+                else normalized = normalized.Replace(",", "");
+            }
+            else normalized = normalized.Replace(',', '.');
+
+            return double.TryParse(normalized, System.Globalization.NumberStyles.AllowLeadingSign |
+                System.Globalization.NumberStyles.AllowDecimalPoint, System.Globalization.CultureInfo.InvariantCulture, out value)
+                && !Double.IsNaN(value) && !Double.IsInfinity(value);
+        }
+
         private static bool ReadPositive(string text, out double value)
-        { return double.TryParse(text.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out value) && value > 0; }
+        { return TryReadNumber(text, out value) && value > 0; }
+
         private static bool ReadNonNegative(string text, out double value)
-        { return double.TryParse(text.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out value) && value >= 0; }
+        { return TryReadNumber(text, out value) && value >= 0; }
 
         private void DrawEmptyPage()
         {
