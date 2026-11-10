@@ -329,12 +329,25 @@ namespace SpeedPhotos.App
                     ClipToBounds = true, Background = Brushes.White, Cursor = System.Windows.Input.Cursors.Hand,
                     ToolTip = "Clic para seleccionar esta fotografía" };
                 int capturedIndex = placementIndex;
+                System.Windows.Point dragStart = new System.Windows.Point();
                 frame.MouseLeftButtonDown += delegate(object sender, System.Windows.Input.MouseButtonEventArgs args)
                 {
+                    dragStart = args.GetPosition(frame);
                     _selectedPlacementIndex = capturedIndex;
                     StatusText.Text = "Fotografía seleccionada. Puedes girarla o crear copias.";
                     RenderCurrentPage();
                     args.Handled = true;
+                };
+                frame.MouseMove += delegate(object sender, System.Windows.Input.MouseEventArgs args)
+                {
+                    if (args.LeftButton != System.Windows.Input.MouseButtonState.Pressed) return;
+                    System.Windows.Point current = args.GetPosition(frame);
+                    if (Math.Abs(current.X - dragStart.X) < System.Windows.SystemParameters.MinimumHorizontalDragDistance &&
+                        Math.Abs(current.Y - dragStart.Y) < System.Windows.SystemParameters.MinimumVerticalDragDistance) return;
+                    _selectedPlacementIndex = capturedIndex;
+                    UpdateSelectionToolbar();
+                    var data = new System.Windows.DataObject("SpeedPhotosPlacement", capturedIndex);
+                    System.Windows.DragDrop.DoDragDrop(frame, data, System.Windows.DragDropEffects.Move);
                 };
                 var image = new Image { Stretch = AspectCombo.SelectedIndex == 0 ? Stretch.Uniform : Stretch.Fill };
                 var source = new BitmapImage();
@@ -345,8 +358,82 @@ namespace SpeedPhotos.App
                 Canvas.SetLeft(frame, p.X * scale); Canvas.SetTop(frame, p.Y * scale); PreviewCanvas.Children.Add(frame);
             }
             UpdatePageNavigation();
+            UpdateSelectionToolbar();
         }
 
+        private void UpdateSelectionToolbar()
+        {
+            bool selected = _selectedPlacementIndex >= 0 && _selectedPlacementIndex < _placements.Count && _placements[_selectedPlacementIndex].Page == _currentPage;
+            SelectionToolbar.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
+            MovePageCombo.Items.Clear();
+            for (int i = 0; i < _pageCount; i++) MovePageCombo.Items.Add("Hoja " + (i + 1));
+            if (MovePageCombo.Items.Count > 0) MovePageCombo.SelectedIndex = selected ? _placements[_selectedPlacementIndex].Page : _currentPage;
+        }
+
+        private void PreviewCanvas_DragOver(object sender, System.Windows.DragEventArgs e)
+        {
+            e.Effects = e.Data.GetDataPresent("SpeedPhotosPlacement") ? System.Windows.DragDropEffects.Move : System.Windows.DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void PreviewCanvas_Drop(object sender, System.Windows.DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent("SpeedPhotosPlacement")) return;
+            int index = (int)e.Data.GetData("SpeedPhotosPlacement");
+            if (index < 0 || index >= _placements.Count || _placements[index].Page != _currentPage) return;
+            PhotoPlacement p = _placements[index];
+            double scale = Dpi / 2.54;
+            System.Windows.Point point = e.GetPosition(PreviewCanvas);
+            double x = point.X / scale - p.Width / 2.0, y = point.Y / scale - p.Height / 2.0;
+            double margin = 0, gap = 0; ReadNonNegative(MarginText.Text, out margin); ReadNonNegative(GapText.Text, out gap);
+            if (x < margin || y < margin || x + p.Width > _pageWidthCm - margin || y + p.Height > _pageHeightCm - margin || !CanPlaceAt(index, p.Page, x, y, p.Width, p.Height, gap))
+            { StatusText.Text = "No se puede colocar ahí: revisa los márgenes y evita superponer fotografías."; return; }
+            p.X = x; p.Y = y; _selectedPlacementIndex = index; RenderCurrentPage();
+            StatusText.Text = "Fotografía reubicada correctamente."; e.Handled = true;
+        }
+
+        private bool CanPlaceAt(int excludedIndex, int page, double x, double y, double width, double height, double gap)
+        {
+            for (int i = 0; i < _placements.Count; i++)
+            {
+                if (i == excludedIndex) continue;
+                PhotoPlacement other = _placements[i]; if (other.Page != page) continue;
+                if (x < other.X + other.Width + gap - 0.0001 && x + width + gap > other.X + 0.0001 && y < other.Y + other.Height + gap - 0.0001 && y + height + gap > other.Y + 0.0001) return false;
+            }
+            return true;
+        }
+
+        private void DeleteSelected_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedPlacementIndex < 0 || _selectedPlacementIndex >= _placements.Count) return;
+            string name = _photos[_placements[_selectedPlacementIndex].PhotoIndex].FileName;
+            _placements.RemoveAt(_selectedPlacementIndex); _selectedPlacementIndex = -1;
+            _pageCount = _placements.Count == 0 ? 0 : GetHighestPage() + 1;
+            if (_pageCount > 0 && _currentPage >= _pageCount) _currentPage = _pageCount - 1;
+            if (_pageCount == 0) DrawEmptyPage(); else RenderCurrentPage();
+            UpdatePageNavigation(); StatusText.Text = "Se eliminó de la composición: " + name + ". El archivo original sigue importado.";
+        }
+
+        private void MoveSelectedToPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedPlacementIndex < 0 || _selectedPlacementIndex >= _placements.Count) return;
+            int targetPage = MovePageCombo.SelectedIndex; PhotoPlacement p = _placements[_selectedPlacementIndex];
+            if (targetPage < 0 || targetPage >= _pageCount || targetPage == p.Page) return;
+            double x, y, gap = 0, margin = 0; ReadNonNegative(GapText.Text, out gap); ReadNonNegative(MarginText.Text, out margin);
+            if (!FindFreePositionOnPage(targetPage, _selectedPlacementIndex, p.Width, p.Height, margin, gap, out x, out y))
+            { StatusText.Text = "No hay espacio suficiente en la hoja seleccionada."; return; }
+            p.Page = targetPage; p.X = x; p.Y = y; _currentPage = targetPage; RenderCurrentPage();
+            StatusText.Text = "Fotografía trasladada a la hoja " + (targetPage + 1) + ".";
+        }
+
+        private bool FindFreePositionOnPage(int page, int excludedIndex, double width, double height, double margin, double gap, out double foundX, out double foundY)
+        {
+            const double step = 0.2;
+            for (double y = margin; y + height <= _pageHeightCm - margin + 0.0001; y += step)
+                for (double x = margin; x + width <= _pageWidthCm - margin + 0.0001; x += step)
+                    if (CanPlaceAt(excludedIndex, page, x, y, width, height, gap)) { foundX = x; foundY = y; return true; }
+            foundX = 0; foundY = 0; return false;
+        }
 
         private void RotateSelected_Click(object sender, RoutedEventArgs e)
         {
