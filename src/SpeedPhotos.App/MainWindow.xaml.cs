@@ -334,9 +334,15 @@ namespace SpeedPhotos.App
                 {
                     dragStart = args.GetPosition(frame);
                     _selectedPlacementIndex = capturedIndex;
-                    StatusText.Text = "Fotografía seleccionada. Puedes girarla o crear copias.";
-                    RenderCurrentPage();
+                    StatusText.Text = "Fotografía seleccionada. Usa las acciones inferiores o arrástrala para reubicarla.";
+                    frame.BorderBrush = Brushes.DodgerBlue;
+                    frame.BorderThickness = new Thickness(2);
+                    UpdateSelectionToolbar();
                     args.Handled = true;
+                };
+                frame.MouseLeftButtonUp += delegate(object sender, System.Windows.Input.MouseButtonEventArgs args)
+                {
+                    if (_selectedPlacementIndex == capturedIndex) RenderCurrentPage();
                 };
                 frame.MouseMove += delegate(object sender, System.Windows.Input.MouseEventArgs args)
                 {
