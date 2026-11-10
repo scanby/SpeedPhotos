@@ -329,33 +329,39 @@ namespace SpeedPhotos.App
                     ClipToBounds = true, Background = Brushes.White, Cursor = System.Windows.Input.Cursors.Hand,
                     ToolTip = "Clic para seleccionar esta fotografía" };
                 int capturedIndex = placementIndex;
-                System.Windows.Point dragStart = new System.Windows.Point();
                 frame.MouseLeftButtonDown += delegate(object sender, System.Windows.Input.MouseButtonEventArgs args)
                 {
-                    dragStart = args.GetPosition(frame);
                     _selectedPlacementIndex = capturedIndex;
-                    StatusText.Text = "Fotografía seleccionada. Usa las acciones inferiores o arrástrala para reubicarla.";
-                    frame.BorderBrush = Brushes.DodgerBlue;
-                    frame.BorderThickness = new Thickness(2);
-                    UpdateSelectionToolbar();
-                    args.Handled = true;
-                };
-                frame.MouseLeftButtonUp += delegate(object sender, System.Windows.Input.MouseButtonEventArgs args)
-                {
-                    if (_selectedPlacementIndex == capturedIndex) RenderCurrentPage();
+                    _isDraggingPlacement = false;
+                    System.Windows.Point pointer = args.GetPosition(PreviewCanvas);
+                    _dragOffsetX = pointer.X - p.X * scale;
+                    _dragOffsetY = pointer.Y - p.Y * scale;
+                    _dragOriginalX = p.X; _dragOriginalY = p.Y;
+                    frame.BorderBrush = Brushes.DodgerBlue; frame.BorderThickness = new Thickness(2);
+                    UpdateSelectionToolbar(); frame.CaptureMouse(); args.Handled = true;
                 };
                 frame.MouseMove += delegate(object sender, System.Windows.Input.MouseEventArgs args)
                 {
-                    if (args.LeftButton != System.Windows.Input.MouseButtonState.Pressed) return;
-                    System.Windows.Point current = args.GetPosition(frame);
-                    if (Math.Abs(current.X - dragStart.X) < System.Windows.SystemParameters.MinimumHorizontalDragDistance &&
-                        Math.Abs(current.Y - dragStart.Y) < System.Windows.SystemParameters.MinimumVerticalDragDistance) return;
-                    _selectedPlacementIndex = capturedIndex;
-                    UpdateSelectionToolbar();
-                    var data = new System.Windows.DataObject("SpeedPhotosPlacement", capturedIndex);
-                    System.Windows.DragDrop.DoDragDrop(frame, data, System.Windows.DragDropEffects.Move);
+                    if (!frame.IsMouseCaptured || args.LeftButton != System.Windows.Input.MouseButtonState.Pressed) return;
+                    System.Windows.Point pointer = args.GetPosition(PreviewCanvas);
+                    double nx = (pointer.X - _dragOffsetX) / scale, ny = (pointer.Y - _dragOffsetY) / scale;
+                    if (Math.Abs(nx - _dragOriginalX) > 0.03 || Math.Abs(ny - _dragOriginalY) > 0.03) _isDraggingPlacement = true;
+                    if (_isDraggingPlacement) { Canvas.SetLeft(frame, nx * scale); Canvas.SetTop(frame, ny * scale); }
                 };
-                var image = new Image { Stretch = AspectCombo.SelectedIndex == 0 ? Stretch.Uniform : Stretch.Fill };
+                frame.MouseLeftButtonUp += delegate(object sender, System.Windows.Input.MouseButtonEventArgs args)
+                {
+                    if (frame.IsMouseCaptured) frame.ReleaseMouseCapture();
+                    if (_isDraggingPlacement)
+                    {
+                        double nx = Canvas.GetLeft(frame) / scale, ny = Canvas.GetTop(frame) / scale;
+                        double margin = 0, gap = 0; ReadNonNegative(MarginText.Text, out margin); ReadNonNegative(GapText.Text, out gap);
+                        if (nx < margin || ny < margin || nx + p.Width > _pageWidthCm - margin || ny + p.Height > _pageHeightCm - margin || !CanPlaceAt(capturedIndex, p.Page, nx, ny, p.Width, p.Height, gap))
+                        { p.X = _dragOriginalX; p.Y = _dragOriginalY; StatusText.Text = "Movimiento cancelado: posición fuera de márgenes o superpuesta."; }
+                        else { p.X = nx; p.Y = ny; StatusText.Text = "Fotografía reubicada correctamente."; }
+                    }
+                    _isDraggingPlacement = false; RenderCurrentPage(); args.Handled = true;
+                };
+                                var image = new Image { Stretch = AspectCombo.SelectedIndex == 0 ? Stretch.Uniform : Stretch.Fill };
                 var source = new BitmapImage();
                 source.BeginInit(); source.UriSource = new Uri(_photos[p.PhotoIndex].FilePath); source.CacheOption = BitmapCacheOption.OnLoad; source.EndInit(); source.Freeze();
                 image.Source = source;
@@ -375,28 +381,6 @@ namespace SpeedPhotos.App
             for (int i = 0; i < _pageCount; i++) MovePageCombo.Items.Add("Hoja " + (i + 1));
             MovePageCombo.Items.Add("Nueva hoja");
             if (MovePageCombo.Items.Count > 0) MovePageCombo.SelectedIndex = selected ? _placements[_selectedPlacementIndex].Page : _currentPage;
-        }
-
-        private void PreviewCanvas_DragOver(object sender, System.Windows.DragEventArgs e)
-        {
-            e.Effects = e.Data.GetDataPresent("SpeedPhotosPlacement") ? System.Windows.DragDropEffects.Move : System.Windows.DragDropEffects.None;
-            e.Handled = true;
-        }
-
-        private void PreviewCanvas_Drop(object sender, System.Windows.DragEventArgs e)
-        {
-            if (!e.Data.GetDataPresent("SpeedPhotosPlacement")) return;
-            int index = (int)e.Data.GetData("SpeedPhotosPlacement");
-            if (index < 0 || index >= _placements.Count || _placements[index].Page != _currentPage) return;
-            PhotoPlacement p = _placements[index];
-            double scale = Dpi / 2.54;
-            System.Windows.Point point = e.GetPosition(PreviewCanvas);
-            double x = point.X / scale - p.Width / 2.0, y = point.Y / scale - p.Height / 2.0;
-            double margin = 0, gap = 0; ReadNonNegative(MarginText.Text, out margin); ReadNonNegative(GapText.Text, out gap);
-            if (x < margin || y < margin || x + p.Width > _pageWidthCm - margin || y + p.Height > _pageHeightCm - margin || !CanPlaceAt(index, p.Page, x, y, p.Width, p.Height, gap))
-            { StatusText.Text = "No se puede colocar ahí: revisa los márgenes y evita superponer fotografías."; return; }
-            p.X = x; p.Y = y; _selectedPlacementIndex = index; RenderCurrentPage();
-            StatusText.Text = "Fotografía reubicada correctamente."; e.Handled = true;
         }
 
         private bool CanPlaceAt(int excludedIndex, int page, double x, double y, double width, double height, double gap)
