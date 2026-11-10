@@ -319,7 +319,9 @@ namespace SpeedPhotos.App
                 var image = new Image { Stretch = AspectCombo.SelectedIndex == 0 ? Stretch.Uniform : Stretch.Fill };
                 var source = new BitmapImage();
                 source.BeginInit(); source.UriSource = new Uri(_photos[p.PhotoIndex].FilePath); source.CacheOption = BitmapCacheOption.OnLoad; source.EndInit(); source.Freeze();
-                image.Source = source;\n                if (p.Rotated) image.LayoutTransform = new RotateTransform(90);\n                frame.Child = image;
+                image.Source = source;
+                if (p.Rotated) image.LayoutTransform = new RotateTransform(90);
+                frame.Child = image;
                 Canvas.SetLeft(frame, p.X * scale); Canvas.SetTop(frame, p.Y * scale); PreviewCanvas.Children.Add(frame);
             }
             UpdatePageNavigation();
