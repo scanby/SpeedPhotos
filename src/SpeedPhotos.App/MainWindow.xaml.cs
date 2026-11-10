@@ -386,8 +386,7 @@ namespace SpeedPhotos.App
                 var frame = new Border { Width = p.Width * scale, Height = p.Height * scale,
                     BorderBrush = selected ? Brushes.DodgerBlue : new SolidColorBrush(Color.FromRgb(180, 190, 205)),
                     BorderThickness = selected ? new Thickness(2) : new Thickness(0.5),
-                    ClipToBounds = true, Background = Brushes.White, Cursor = System.Windows.Input.Cursors.Hand,
-                    ToolTip = "Clic para seleccionar esta fotografía" };
+                    ClipToBounds = true, Background = Brushes.White, Cursor = System.Windows.Input.Cursors.Hand };
                 System.Windows.Controls.Panel.SetZIndex(frame, selected ? 10000 : 0);
                 int capturedIndex = placementIndex;
                 frame.MouseLeftButtonDown += delegate(object sender, System.Windows.Input.MouseButtonEventArgs args)
@@ -400,7 +399,8 @@ namespace SpeedPhotos.App
                     _dragOriginalX = p.X; _dragOriginalY = p.Y;
                     frame.BorderBrush = Brushes.DodgerBlue; frame.BorderThickness = new Thickness(2);
                     System.Windows.Controls.Panel.SetZIndex(frame, 10000);
-                    UpdateSelectionToolbar(); frame.CaptureMouse(); args.Handled = true;
+                    SelectionToolbar.Visibility = Visibility.Visible;
+                    frame.CaptureMouse(); args.Handled = true;
                 };
                 frame.MouseMove += delegate(object sender, System.Windows.Input.MouseEventArgs args)
                 {
