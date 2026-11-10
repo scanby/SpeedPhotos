@@ -6,6 +6,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Printing;
+using System.Windows.Documents;
 
 namespace SpeedPhotos.App
 {
@@ -21,12 +23,16 @@ namespace SpeedPhotos.App
         private double _pageWidthCm, _pageHeightCm;
         private Point _photoDragStart;
         private PhotoItem _photoDragItem;
+        private PrintQueue _selectedPrinter;
+        private PrintCapabilities _printerCapabilities;
+        private bool _loadingPrinterOptions;
 
         public MainWindow()
         {
             InitializeComponent();
             PhotosList.ItemsSource = _photos;
             DrawEmptyPage();
+            LoadPrinters();
         }
 
         private void ImportPhotos_Click(object sender, RoutedEventArgs e)
@@ -100,6 +106,199 @@ namespace SpeedPhotos.App
 
             StatusText.Text = added + " fotografía(s) importada(s). Total: " + _photos.Count +
                 (rejected > 0 ? ". " + rejected + " archivo(s) omitido(s) por formato no compatible o error de lectura." : ".");
+        }
+
+        private void TogglePrintSettings_Click(object sender, RoutedEventArgs e)
+        {
+            PrintSettingsPanel.Visibility = PrintSettingsPanel.Visibility == Visibility.Visible
+                ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private void LoadPrinters()
+        {
+            _loadingPrinterOptions = true;
+            PrinterCombo.Items.Clear();
+            try
+            {
+                var server = new LocalPrintServer();
+                PrintQueue defaultQueue = server.DefaultPrintQueue;
+                foreach (PrintQueue queue in server.GetPrintQueues())
+                {
+                    queue.Refresh();
+                    var item = new ComboBoxItem { Content = queue.Name, Tag = queue };
+                    PrinterCombo.Items.Add(item);
+                    if (defaultQueue != null && queue.FullName == defaultQueue.FullName)
+                        PrinterCombo.SelectedItem = item;
+                }
+                if (PrinterCombo.SelectedIndex < 0 && PrinterCombo.Items.Count > 0)
+                    PrinterCombo.SelectedIndex = 0;
+                if (PrinterCombo.Items.Count == 0)
+                    PrinterStatusText.Text = "Windows no reporta impresoras instaladas.";
+            }
+            catch (Exception ex)
+            {
+                PrinterStatusText.Text = "No se pudieron consultar las impresoras: " + ex.Message;
+            }
+            _loadingPrinterOptions = false;
+            if (PrinterCombo.SelectedItem != null) PrinterCombo_SelectionChanged(this, null);
+        }
+
+        private void PrinterCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_loadingPrinterOptions) return;
+            var item = PrinterCombo.SelectedItem as ComboBoxItem;
+            _selectedPrinter = item == null ? null : item.Tag as PrintQueue;
+            LoadPrinterCapabilities();
+        }
+
+        private void LoadPrinterCapabilities()
+        {
+            ClearPrinterOptions();
+            if (_selectedPrinter == null) return;
+            try
+            {
+                _selectedPrinter.Refresh();
+                _printerCapabilities = _selectedPrinter.GetPrintCapabilities();
+                AddCapabilityOptions(PaperSizeCombo, _printerCapabilities.PageMediaSizeCapability);
+                AddCapabilityOptions(PaperTypeCombo, _printerCapabilities.PageMediaTypeCapability);
+                AddCapabilityOptions(PrintQualityCombo, _printerCapabilities.PageResolutionCapability);
+                AddCapabilityOptions(DuplexCombo, _printerCapabilities.DuplexingCapability);
+                AddCapabilityOptions(ColorModeCombo, _printerCapabilities.OutputColorCapability);
+                SetDefaultCapability(PaperSizeCombo, _selectedPrinter.DefaultPrintTicket.PageMediaSize);
+                SetDefaultCapability(PaperTypeCombo, _selectedPrinter.DefaultPrintTicket.PageMediaType);
+                SetDefaultCapability(PrintQualityCombo, _selectedPrinter.DefaultPrintTicket.PageResolution);
+                SetDefaultCapability(DuplexCombo, _selectedPrinter.DefaultPrintTicket.Duplexing);
+                SetDefaultCapability(ColorModeCombo, _selectedPrinter.DefaultPrintTicket.OutputColor);
+                if (PaperSizeCombo.SelectedIndex < 0 && PaperSizeCombo.Items.Count > 0) PaperSizeCombo.SelectedIndex = 0;
+                if (PaperTypeCombo.SelectedIndex < 0 && PaperTypeCombo.Items.Count > 0) PaperTypeCombo.SelectedIndex = 0;
+                if (PrintQualityCombo.SelectedIndex < 0 && PrintQualityCombo.Items.Count > 0) PrintQualityCombo.SelectedIndex = 0;
+                if (ColorModeCombo.SelectedIndex < 0 && ColorModeCombo.Items.Count > 0) ColorModeCombo.SelectedIndex = 0;
+                bool supportsDuplex = _printerCapabilities.DuplexingCapability != null &&
+                    (_printerCapabilities.DuplexingCapability.Contains(Duplexing.TwoSidedLongEdge) ||
+                     _printerCapabilities.DuplexingCapability.Contains(Duplexing.TwoSidedShortEdge));
+                DuplexCheck.IsEnabled = supportsDuplex;
+                DuplexCheck.IsChecked = false;
+                DuplexCombo.IsEnabled = supportsDuplex;
+                if (!supportsDuplex) DuplexCombo.Items.Clear();
+                PrinterStatusText.Text = supportsDuplex
+                    ? "Opciones obtenidas del controlador de " + _selectedPrinter.Name + "."
+                    : "Esta impresora no informa compatibilidad con impresión a doble cara.";
+                UpdatePreviewColorMode();
+            }
+            catch (Exception ex)
+            {
+                PrinterStatusText.Text = "No se pudieron consultar las capacidades: " + ex.Message;
+            }
+        }
+
+        private static void AddCapabilityOptions(ComboBox combo, System.Collections.IEnumerable values)
+        {
+            combo.Items.Clear();
+            if (values == null) return;
+            foreach (object value in values)
+            {
+                combo.Items.Add(new ComboBoxItem { Content = value.ToString(), Tag = value });
+            }
+        }
+
+        private static void SetDefaultCapability(ComboBox combo, object value)
+        {
+            if (value == null) return;
+            foreach (ComboBoxItem item in combo.Items)
+                if (Object.Equals(item.Tag, value)) { combo.SelectedItem = item; return; }
+        }
+
+        private void ClearPrinterOptions()
+        {
+            PaperSizeCombo.Items.Clear(); PaperTypeCombo.Items.Clear(); PrintQualityCombo.Items.Clear();
+            DuplexCombo.Items.Clear(); ColorModeCombo.Items.Clear();
+            DuplexCheck.IsChecked = false; DuplexCheck.IsEnabled = false; DuplexCombo.IsEnabled = false;
+        }
+
+        private bool IsGrayscaleSelected()
+        {
+            var item = ColorModeCombo == null ? null : ColorModeCombo.SelectedItem as ComboBoxItem;
+            return item != null && item.Tag is OutputColor && (OutputColor)item.Tag == OutputColor.Grayscale;
+        }
+
+        private void ColorModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (IsLoaded) UpdatePreviewColorMode();
+        }
+
+        private void UpdatePreviewColorMode()
+        {
+            if (_pageCount > 0) RenderCurrentPage();
+        }
+
+        private void PrintNow_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedPrinter == null) { MessageBox.Show("No hay una impresora seleccionada."); return; }
+            if (_placements.Count == 0 || _pageCount == 0) { MessageBox.Show("Primero genera una distribución de fotografías."); return; }
+            try
+            {
+                var ticket = _selectedPrinter.DefaultPrintTicket ?? new PrintTicket();
+                var size = SelectedCapability<PageMediaSize>(PaperSizeCombo);
+                var type = SelectedCapability<PageMediaType>(PaperTypeCombo);
+                var resolution = SelectedCapability<PageResolution>(PrintQualityCombo);
+                if (size != null) ticket.PageMediaSize = size;
+                if (type.HasValue) ticket.PageMediaType = type.Value;
+                if (resolution != null) ticket.PageResolution = resolution;
+                var color = SelectedCapability<OutputColor>(ColorModeCombo);
+                if (color.HasValue) ticket.OutputColor = color.Value;
+                if (DuplexCheck.IsChecked == true)
+                {
+                    var duplex = SelectedCapability<Duplexing>(DuplexCombo);
+                    if (duplex.HasValue && (duplex.Value == Duplexing.TwoSidedLongEdge || duplex.Value == Duplexing.TwoSidedShortEdge))
+                        ticket.Duplexing = duplex.Value;
+                }
+                else ticket.Duplexing = Duplexing.OneSided;
+
+                var dialog = new PrintDialog { PrintQueue = _selectedPrinter, PrintTicket = ticket };
+                var document = new FixedDocument();
+                double pageW = _pageWidthCm * Dpi / 2.54, pageH = _pageHeightCm * Dpi / 2.54;
+                for (int pageIndex = 0; pageIndex < _pageCount; pageIndex++)
+                {
+                    var fixedPage = new FixedPage { Width = pageW, Height = pageH };
+                    var canvas = new Canvas { Width = pageW, Height = pageH, Background = Brushes.White };
+                    foreach (PhotoPlacement placement in _placements)
+                    {
+                        if (placement.Page != pageIndex) continue;
+                        var image = new Image { Width = placement.Width * Dpi / 2.54,
+                            Height = placement.Height * Dpi / 2.54,
+                            Stretch = AspectCombo.SelectedIndex == 0 ? Stretch.Uniform : Stretch.Fill };
+                        var bitmap = new BitmapImage();
+                        bitmap.BeginInit(); bitmap.UriSource = new Uri(_photos[placement.PhotoIndex].FilePath);
+                        bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.EndInit(); bitmap.Freeze();
+                        image.Source = IsGrayscaleSelected()
+                            ? new FormatConvertedBitmap(bitmap, PixelFormats.Gray8, null, 0) : (ImageSource)bitmap;
+                        if (placement.Rotated) image.LayoutTransform = new RotateTransform(90);
+                        var frame = new Border { Width = image.Width, Height = image.Height, Child = image,
+                            ClipToBounds = true, Background = Brushes.White };
+                        Canvas.SetLeft(frame, placement.X * Dpi / 2.54);
+                        Canvas.SetTop(frame, placement.Y * Dpi / 2.54);
+                        canvas.Children.Add(frame);
+                    }
+                    fixedPage.Children.Add(canvas);
+                    var content = new PageContent();
+                    ((IAddChild)content).AddChild(fixedPage);
+                    document.Pages.Add(content);
+                }
+                dialog.PrintDocument(document.DocumentPaginator, "SpeedPhotos");
+                PrinterStatusText.Text = "Trabajo de impresión enviado a " + _selectedPrinter.Name + ".";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("No se pudo imprimir. Revisa las opciones del controlador. Detalle: " + ex.Message,
+                    "Error de impresión", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private static T SelectedCapability<T>(ComboBox combo) where T : struct
+        {
+            var item = combo.SelectedItem as ComboBoxItem;
+            if (item == null || !(item.Tag is T)) return default(T);
+            return (T)item.Tag;
         }
 
         private void PhotosList_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -502,7 +701,7 @@ namespace SpeedPhotos.App
                                 var image = new Image { Stretch = AspectCombo.SelectedIndex == 0 ? Stretch.Uniform : Stretch.Fill };
                 var source = new BitmapImage();
                 source.BeginInit(); source.UriSource = new Uri(_photos[p.PhotoIndex].FilePath); source.CacheOption = BitmapCacheOption.OnLoad; source.EndInit(); source.Freeze();
-                image.Source = source;
+                image.Source = IsGrayscaleSelected() ? new FormatConvertedBitmap(source, PixelFormats.Gray8, null, 0) : (ImageSource)source;
                 if (p.Rotated) image.LayoutTransform = new RotateTransform(90);
                 frame.Child = image;
                 Canvas.SetLeft(frame, p.X * scale); Canvas.SetTop(frame, p.Y * scale); PreviewCanvas.Children.Add(frame);
