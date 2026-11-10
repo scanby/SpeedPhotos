@@ -338,6 +338,7 @@ namespace SpeedPhotos.App
                     _dragOffsetY = pointer.Y - p.Y * scale;
                     _dragOriginalX = p.X; _dragOriginalY = p.Y;
                     frame.BorderBrush = Brushes.DodgerBlue; frame.BorderThickness = new Thickness(2);
+                    System.Windows.Controls.Panel.SetZIndex(frame, 10000);
                     UpdateSelectionToolbar(); frame.CaptureMouse(); args.Handled = true;
                 };
                 frame.MouseMove += delegate(object sender, System.Windows.Input.MouseEventArgs args)
@@ -355,9 +356,25 @@ namespace SpeedPhotos.App
                     {
                         double nx = Canvas.GetLeft(frame) / scale, ny = Canvas.GetTop(frame) / scale;
                         double margin = 0, gap = 0; ReadNonNegative(MarginText.Text, out margin); ReadNonNegative(GapText.Text, out gap);
-                        if (nx < margin || ny < margin || nx + p.Width > _pageWidthCm - margin || ny + p.Height > _pageHeightCm - margin || !CanPlaceAt(capturedIndex, p.Page, nx, ny, p.Width, p.Height, gap))
-                        { p.X = _dragOriginalX; p.Y = _dragOriginalY; StatusText.Text = "Movimiento cancelado: posición fuera de márgenes o superpuesta."; }
-                        else { p.X = nx; p.Y = ny; StatusText.Text = "Fotografía reubicada correctamente."; }
+                        if (nx < margin || ny < margin || nx + p.Width > _pageWidthCm - margin || ny + p.Height > _pageHeightCm - margin)
+                        {
+                            p.X = _dragOriginalX; p.Y = _dragOriginalY;
+                            StatusText.Text = "Movimiento cancelado: la fotografía queda fuera de los márgenes.";
+                        }
+                        else
+                        {
+                            double[] oldX = new double[_placements.Count];
+                            double[] oldY = new double[_placements.Count];
+                            for (int i = 0; i < _placements.Count; i++) { oldX[i] = _placements[i].X; oldY[i] = _placements[i].Y; }
+                            p.X = nx; p.Y = ny;
+                            if (ReflowPageAfterDrop(capturedIndex, margin, gap))
+                                StatusText.Text = "Fotografía reubicada. Las demás se desplazaron para abrir espacio.";
+                            else
+                            {
+                                for (int i = 0; i < _placements.Count; i++) { _placements[i].X = oldX[i]; _placements[i].Y = oldY[i]; }
+                                StatusText.Text = "No hay espacio suficiente para reorganizar la hoja. Se conservó la distribución anterior.";
+                            }
+                        }
                     }
                     _isDraggingPlacement = false; RenderCurrentPage(); args.Handled = true;
                 };
@@ -381,6 +398,82 @@ namespace SpeedPhotos.App
             for (int i = 0; i < _pageCount; i++) MovePageCombo.Items.Add("Hoja " + (i + 1));
             MovePageCombo.Items.Add("Nueva hoja");
             if (MovePageCombo.Items.Count > 0) MovePageCombo.SelectedIndex = selected ? _placements[_selectedPlacementIndex].Page : _currentPage;
+        }
+
+        // Reorganiza la hoja después de soltar una fotografía.
+        // Conserva las posiciones que puede y desplaza las afectadas primero a la derecha
+        // y después hacia abajo, siguiendo un recorrido de izquierda a derecha y de arriba abajo.
+        private bool ReflowPageAfterDrop(int selectedIndex, double margin, double gap)
+        {
+            if (selectedIndex < 0 || selectedIndex >= _placements.Count) return false;
+
+            PhotoPlacement selected = _placements[selectedIndex];
+            double rightLimit = _pageWidthCm - margin;
+            double bottomLimit = _pageHeightCm - margin;
+            var ordered = new List<int>();
+
+            for (int i = 0; i < _placements.Count; i++)
+                if (i != selectedIndex && _placements[i].Page == selected.Page) ordered.Add(i);
+
+            ordered.Sort(delegate(int a, int b)
+            {
+                int row = _placements[a].Y.CompareTo(_placements[b].Y);
+                return row != 0 ? row : _placements[a].X.CompareTo(_placements[b].X);
+            });
+
+            var placed = new List<int>();
+            placed.Add(selectedIndex);
+
+            foreach (int index in ordered)
+            {
+                PhotoPlacement current = _placements[index];
+                double originalX = current.X;
+                double originalY = current.Y;
+                bool resolved = false;
+
+                // Cada intento mueve la foto a la derecha del primer obstáculo.
+                // Si no cabe, baja a la siguiente posición disponible.
+                for (int attempt = 0; attempt < _placements.Count * 4 + 20; attempt++)
+                {
+                    PhotoPlacement collision = null;
+                    foreach (int placedIndex in placed)
+                    {
+                        PhotoPlacement obstacle = _placements[placedIndex];
+                        bool overlaps = current.X < obstacle.X + obstacle.Width + gap - 0.0001 &&
+                            current.X + current.Width + gap > obstacle.X + 0.0001 &&
+                            current.Y < obstacle.Y + obstacle.Height + gap - 0.0001 &&
+                            current.Y + current.Height + gap > obstacle.Y + 0.0001;
+                        if (overlaps) { collision = obstacle; break; }
+                    }
+
+                    if (collision == null)
+                    {
+                        if (current.X >= margin - 0.0001 && current.Y >= margin - 0.0001 &&
+                            current.X + current.Width <= rightLimit + 0.0001 &&
+                            current.Y + current.Height <= bottomLimit + 0.0001)
+                        { resolved = true; break; }
+                        return false;
+                    }
+
+                    double rightX = collision.X + collision.Width + gap;
+                    if (rightX + current.Width <= rightLimit + 0.0001 &&
+                        current.Y + current.Height <= bottomLimit + 0.0001)
+                    {
+                        current.X = rightX;
+                    }
+                    else
+                    {
+                        current.X = margin;
+                        current.Y = collision.Y + collision.Height + gap;
+                    }
+
+                    if (current.Y + current.Height > bottomLimit + 0.0001) return false;
+                }
+
+                if (!resolved) return false;
+                placed.Add(index);
+            }
+            return true;
         }
 
         private bool CanPlaceAt(int excludedIndex, int page, double x, double y, double width, double height, double gap)
