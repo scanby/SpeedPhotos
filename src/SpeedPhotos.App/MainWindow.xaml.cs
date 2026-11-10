@@ -376,13 +376,8 @@ namespace SpeedPhotos.App
                             double[] oldY = new double[_placements.Count];
                             for (int i = 0; i < _placements.Count; i++) { oldX[i] = _placements[i].X; oldY[i] = _placements[i].Y; }
                             p.X = nx; p.Y = ny;
-                            if (ReflowPageAfterDrop(capturedIndex, margin, gap))
-                                StatusText.Text = "Fotografía reubicada. Las demás se desplazaron para abrir espacio.";
-                            else
-                            {
-                                for (int i = 0; i < _placements.Count; i++) { _placements[i].X = oldX[i]; _placements[i].Y = oldY[i]; }
-                                StatusText.Text = "No hay espacio suficiente para reorganizar la hoja. Se conservó la distribución anterior.";
-                            }
+                            ReflowPageAfterDrop(capturedIndex, margin, gap);
+                            StatusText.Text = "Fotografía reubicada. Se reorganizaron las demás posiciones disponibles.";
                         }
                     }
                     _isDraggingPlacement = false; RenderCurrentPage(); args.Handled = true;
@@ -409,9 +404,9 @@ namespace SpeedPhotos.App
             if (MovePageCombo.Items.Count > 0) MovePageCombo.SelectedIndex = selected ? _placements[_selectedPlacementIndex].Page : _currentPage;
         }
 
-        // Reorganiza la hoja después de soltar una fotografía.
-        // Mantiene la foto soltada en su sitio y recoloca las demás: primero hacia la derecha
-        // en su misma fila y, si no caben, busca espacio en filas inferiores.
+        // Mantiene fija la fotografía soltada y recoloca las demás de su hoja.
+        // Para cada foto intenta primero avanzar a la derecha; después busca filas inferiores.
+        // Si una foto no encuentra espacio, no revierte el movimiento principal.
         private bool ReflowPageAfterDrop(int selectedIndex, double margin, double gap)
         {
             if (selectedIndex < 0 || selectedIndex >= _placements.Count) return false;
@@ -432,27 +427,23 @@ namespace SpeedPhotos.App
 
             var placed = new List<int>();
             placed.Add(selectedIndex);
+            const double step = 0.2;
 
             foreach (int index in ordered)
             {
                 PhotoPlacement current = _placements[index];
                 double originalX = current.X;
                 double originalY = current.Y;
-                bool found = false;
+                bool found = IsValidReflowPosition(current, placed, originalX, originalY,
+                    margin, gap, rightLimit, bottomLimit);
 
-                // Primero intenta conservar la posición original.
-                if (IsValidReflowPosition(current, placed, originalX, originalY, margin, gap, rightLimit, bottomLimit))
+                // Primera prioridad: desplazar hacia la derecha conservando la fila.
+                if (!found)
                 {
-                    found = true;
-                }
-                else
-                {
-                    // Intenta desplazarse hacia la derecha en la misma fila.
-                    const double step = 0.1;
-                    for (double x = Math.Max(margin, originalX + step);
-                        x + current.Width <= rightLimit + 0.0001; x += step)
+                    for (double x = originalX + step; x + current.Width <= rightLimit + 0.0001; x += step)
                     {
-                        if (IsValidReflowPosition(current, placed, x, originalY, margin, gap, rightLimit, bottomLimit))
+                        if (IsValidReflowPosition(current, placed, x, originalY,
+                            margin, gap, rightLimit, bottomLimit))
                         {
                             current.X = x;
                             current.Y = originalY;
@@ -460,29 +451,35 @@ namespace SpeedPhotos.App
                             break;
                         }
                     }
+                }
 
-                    // Si no cabe a la derecha, busca desde el margen en filas inferiores.
-                    if (!found)
+                // Segunda prioridad: bajar y buscar desde la izquierda hacia la derecha.
+                if (!found)
+                {
+                    for (double y = Math.Max(margin, originalY + step);
+                        y + current.Height <= bottomLimit + 0.0001 && !found; y += step)
                     {
-                        for (double y = originalY + step;
-                            y + current.Height <= bottomLimit + 0.0001 && !found; y += step)
+                        for (double x = margin; x + current.Width <= rightLimit + 0.0001; x += step)
                         {
-                            for (double x = margin;
-                                x + current.Width <= rightLimit + 0.0001; x += step)
+                            if (IsValidReflowPosition(current, placed, x, y,
+                                margin, gap, rightLimit, bottomLimit))
                             {
-                                if (IsValidReflowPosition(current, placed, x, y, margin, gap, rightLimit, bottomLimit))
-                                {
-                                    current.X = x;
-                                    current.Y = y;
-                                    found = true;
-                                    break;
-                                }
+                                current.X = x;
+                                current.Y = y;
+                                found = true;
+                                break;
                             }
                         }
                     }
                 }
 
-                if (!found) return false;
+                // Si no hay hueco, se conserva esta foto en su sitio y se continúa
+                // con las demás, evitando cancelar el movimiento que hizo el usuario.
+                if (!found)
+                {
+                    current.X = originalX;
+                    current.Y = originalY;
+                }
                 placed.Add(index);
             }
 
