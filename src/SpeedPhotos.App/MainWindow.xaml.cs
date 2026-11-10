@@ -15,6 +15,7 @@ namespace SpeedPhotos.App
         private readonly ObservableCollection<PhotoItem> _photos = new ObservableCollection<PhotoItem>();
         private readonly List<PhotoPlacement> _placements = new List<PhotoPlacement>();
         private int _pageCount, _currentPage;
+        private int _selectedPlacementIndex = -1;
         private double _pageWidthCm, _pageHeightCm;
 
         public MainWindow()
@@ -78,6 +79,7 @@ namespace SpeedPhotos.App
             if (usableW <= 0 || usableH <= 0) { MessageBox.Show("El margen es demasiado grande."); return; }
 
             _placements.Clear();
+            _selectedPlacementIndex = -1;
             bool keepAspect = AspectCombo.SelectedIndex == 0;
             if (hasWidth || hasHeight)
             {
@@ -310,12 +312,24 @@ namespace SpeedPhotos.App
             double pageW = _pageWidthCm * Dpi / 2.54, pageH = _pageHeightCm * Dpi / 2.54;
             PreviewCanvas.Width = pageW; PreviewCanvas.Height = pageH; PreviewCanvas.Children.Clear(); PreviewCanvas.Background = Brushes.White;
             double scale = Dpi / 2.54;
-            foreach (PhotoPlacement p in _placements)
+            for (int placementIndex = 0; placementIndex < _placements.Count; placementIndex++)
             {
+                PhotoPlacement p = _placements[placementIndex];
                 if (p.Page != _currentPage) continue;
+                bool selected = placementIndex == _selectedPlacementIndex;
                 var frame = new Border { Width = p.Width * scale, Height = p.Height * scale,
-                    BorderBrush = new SolidColorBrush(Color.FromRgb(180, 190, 205)), BorderThickness = new Thickness(0.5),
-                    ClipToBounds = true, Background = Brushes.White };
+                    BorderBrush = selected ? Brushes.DodgerBlue : new SolidColorBrush(Color.FromRgb(180, 190, 205)),
+                    BorderThickness = selected ? new Thickness(2) : new Thickness(0.5),
+                    ClipToBounds = true, Background = Brushes.White, Cursor = System.Windows.Input.Cursors.Hand,
+                    ToolTip = "Clic para seleccionar esta fotografía" };
+                int capturedIndex = placementIndex;
+                frame.MouseLeftButtonDown += delegate(object sender, System.Windows.Input.MouseButtonEventArgs args)
+                {
+                    _selectedPlacementIndex = capturedIndex;
+                    StatusText.Text = "Fotografía seleccionada. Puedes girarla o crear copias.";
+                    RenderCurrentPage();
+                    args.Handled = true;
+                };
                 var image = new Image { Stretch = AspectCombo.SelectedIndex == 0 ? Stretch.Uniform : Stretch.Fill };
                 var source = new BitmapImage();
                 source.BeginInit(); source.UriSource = new Uri(_photos[p.PhotoIndex].FilePath); source.CacheOption = BitmapCacheOption.OnLoad; source.EndInit(); source.Freeze();
@@ -325,6 +339,94 @@ namespace SpeedPhotos.App
                 Canvas.SetLeft(frame, p.X * scale); Canvas.SetTop(frame, p.Y * scale); PreviewCanvas.Children.Add(frame);
             }
             UpdatePageNavigation();
+        }
+
+
+        private void RotateSelected_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedPlacementIndex < 0 || _selectedPlacementIndex >= _placements.Count)
+            {
+                MessageBox.Show("Primero haz clic sobre una fotografía de la vista previa para seleccionarla.");
+                return;
+            }
+            _placements[_selectedPlacementIndex].Rotated = !_placements[_selectedPlacementIndex].Rotated;
+            RenderCurrentPage();
+            StatusText.Text = "Fotografía girada 90°. Selección actualizada.";
+        }
+
+        private void DuplicateSelected_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedPlacementIndex < 0 || _selectedPlacementIndex >= _placements.Count)
+            {
+                MessageBox.Show("Primero haz clic sobre una fotografía de la vista previa para seleccionarla.");
+                return;
+            }
+            int copies;
+            if (!Int32.TryParse(CopiesText.Text, out copies) || copies < 1 || copies > 50)
+            {
+                MessageBox.Show("Indica entre 1 y 50 copias.");
+                return;
+            }
+
+            PhotoPlacement source = _placements[_selectedPlacementIndex];
+            int added = 0;
+            for (int copy = 0; copy < copies; copy++)
+            {
+                double x, y;
+                int page;
+                if (!FindFreePosition(source.Width, source.Height, out page, out x, out y))
+                    break;
+                var duplicate = new PhotoPlacement { PhotoIndex = source.PhotoIndex, Page = page,
+                    X = x, Y = y, Width = source.Width, Height = source.Height, Rotated = source.Rotated };
+                _placements.Add(duplicate);
+                _selectedPlacementIndex = _placements.Count - 1;
+                added++;
+            }
+            _pageCount = Math.Max(_pageCount, GetHighestPage() + 1);
+            _currentPage = _placements[_selectedPlacementIndex].Page;
+            RenderCurrentPage();
+            StatusText.Text = added + " copia(s) agregada(s) de " + _photos[source.PhotoIndex].FileName +
+                (added < copies ? ". No había espacio para todas; se creó una nueva hoja cuando fue necesario." : ".");
+        }
+
+        private bool FindFreePosition(double width, double height, out int page, out double x, out double y)
+        {
+            const double step = 0.2;
+            double margin = 0;
+            ReadNonNegative(MarginText.Text, out margin);
+            double gap = 0;
+            ReadNonNegative(GapText.Text, out gap);
+            double right = _pageWidthCm - margin - width;
+            double bottom = _pageHeightCm - margin - height;
+            for (int p = 0; p < Math.Max(1, _pageCount + 1); p++)
+            {
+                for (double yy = margin; yy <= bottom + 0.0001; yy += step)
+                {
+                    for (double xx = margin; xx <= right + 0.0001; xx += step)
+                    {
+                        bool overlaps = false;
+                        foreach (PhotoPlacement existing in _placements)
+                        {
+                            if (existing.Page != p) continue;
+                            if (xx < existing.X + existing.Width + gap - 0.0001 &&
+                                xx + width + gap > existing.X + 0.0001 &&
+                                yy < existing.Y + existing.Height + gap - 0.0001 &&
+                                yy + height + gap > existing.Y + 0.0001)
+                            { overlaps = true; break; }
+                        }
+                        if (!overlaps) { page = p; x = xx; y = yy; return true; }
+                    }
+                }
+            }
+            page = 0; x = 0; y = 0; return false;
+        }
+
+        private int GetHighestPage()
+        {
+            int highest = -1;
+            foreach (PhotoPlacement placement in _placements)
+                if (placement.Page > highest) highest = placement.Page;
+            return highest;
         }
 
         private void UpdatePageNavigation()
