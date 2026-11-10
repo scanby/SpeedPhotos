@@ -25,6 +25,10 @@
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
               <Button x:Name="PreviousPageButton" Content="◀ Anterior" Padding="8,4" Margin="4,0" Click="PreviousPage_Click" IsEnabled="False"/>
               <TextBlock x:Name="PageIndicator" Text="Hoja 0 de 0" VerticalAlignment="Center" Margin="8,0"/>
+              <Button Content="Girar 90°" Padding="8,4" Margin="4,0" Click="RotateSelected_Click"/>
+              <TextBlock Text="Copias:" VerticalAlignment="Center" Margin="6,0,2,0"/>
+              <TextBox x:Name="CopiesText" Text="1" Width="34" Padding="4" VerticalContentAlignment="Center"/>
+              <Button Content="Duplicar" Padding="8,4" Margin="4,0" Click="DuplicateSelected_Click"/>
               <Button x:Name="NextPageButton" Content="Siguiente ▶" Padding="8,4" Margin="4,0" Click="NextPage_Click" IsEnabled="False"/>
             </StackPanel>
           </DockPanel>
