@@ -11,7 +11,7 @@
       <StackPanel>
         <WrapPanel VerticalAlignment="Center">
           <StackPanel Width="210" Margin="0,0,12,8"><TextBlock Text="Impresora"/><ComboBox x:Name="PrinterCombo" Margin="0,4,0,0" Padding="5" SelectionChanged="PrinterCombo_SelectionChanged"/></StackPanel>
-          <StackPanel Width="130" Margin="0,0,12,8"><TextBlock Text="Tamaño de papel"/><ComboBox x:Name="PaperSizeCombo" Margin="0,4,0,0" Padding="5"/></StackPanel>
+          <StackPanel Width="130" Margin="0,0,12,8"><TextBlock Text="Tamaño de papel"/><ComboBox x:Name="PaperSizeCombo" Margin="0,4,0,0" Padding="5" SelectionChanged="PrinterPaperSize_SelectionChanged"/></StackPanel>
           <StackPanel Width="145" Margin="0,0,12,8"><TextBlock Text="Tipo de papel"/><ComboBox x:Name="PaperTypeCombo" Margin="0,4,0,0" Padding="5"/></StackPanel>
           <StackPanel Width="145" Margin="0,0,12,8"><TextBlock Text="Calidad"/><ComboBox x:Name="PrintQualityCombo" Margin="0,4,0,0" Padding="5"/></StackPanel>
           <StackPanel Width="145" Margin="0,0,12,8"><TextBlock Text="Modo de color"/><ComboBox x:Name="ColorModeCombo" Margin="0,4,0,0" Padding="5" SelectionChanged="ColorModeCombo_SelectionChanged"/></StackPanel>
