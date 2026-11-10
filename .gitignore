@@ -1,0 +1,33 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+
+# Build and test
+artifacts/
+TestResults/
+*.log
+
+# NuGet
+packages/
+!packages/build/
+
+# Local databases and user data
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# OS/editor
+.DS_Store
+Thumbs.db
+*.swp
