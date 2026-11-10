@@ -8,8 +8,6 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Printing;
 using System.Windows.Documents;
-using System.Printing;
-using System.Windows.Documents;
 
 namespace SpeedPhotos.App
 {
