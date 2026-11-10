@@ -120,6 +120,54 @@ namespace SpeedPhotos.App
                 ? Visibility.Collapsed : Visibility.Visible;
         }
 
+        private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
+        {
+            CheckUpdatesButton.IsEnabled = false;
+            try
+            {
+                StatusText.Text = "Buscando actualizaciones...";
+                UpdateInfo update = await UpdateService.CheckForUpdateAsync();
+                if (update == null)
+                {
+                    MessageBox.Show(this, "Ya tienes instalada la versión más reciente de SpeedPhotos.",
+                        "SpeedPhotos - Actualizaciones", MessageBoxButton.OK, MessageBoxImage.Information);
+                    StatusText.Text = "SpeedPhotos está actualizado.";
+                    return;
+                }
+
+                Version current = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+                string message = "Hay una nueva versión disponible.\\n\\nVersión instalada: " + current +
+                    "\\nNueva versión: " + update.Version + "\\n\\n¿Deseas descargar e instalar la actualización?";
+                if (MessageBox.Show(this, message, "Actualización disponible",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                {
+                    StatusText.Text = "Actualización pospuesta.";
+                    return;
+                }
+
+                StatusText.Text = "Descargando actualización...";
+                string installerPath = await UpdateService.DownloadInstallerAsync(update);
+                StatusText.Text = "Iniciando instalador...";
+                var start = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = installerPath,
+                    UseShellExecute = true
+                };
+                System.Diagnostics.Process.Start(start);
+                Application.Current.Shutdown();
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = "No se pudo completar la actualización.";
+                MessageBox.Show(this, "No fue posible buscar o instalar actualizaciones.\\n\\n" + ex.Message,
+                    "SpeedPhotos - Actualizaciones", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            finally
+            {
+                CheckUpdatesButton.IsEnabled = true;
+            }
+        }
+
         private void LoadPrinters()
         {
             _loadingPrinterOptions = true;
