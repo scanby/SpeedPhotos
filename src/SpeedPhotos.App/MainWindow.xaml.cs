@@ -16,6 +16,8 @@ namespace SpeedPhotos.App
         private readonly List<PhotoPlacement> _placements = new List<PhotoPlacement>();
         private int _pageCount, _currentPage;
         private int _selectedPlacementIndex = -1;
+        private bool _isDraggingPlacement;
+        private double _dragOffsetX, _dragOffsetY, _dragOriginalX, _dragOriginalY;
         private double _pageWidthCm, _pageHeightCm;
 
         public MainWindow()
@@ -106,7 +108,7 @@ namespace SpeedPhotos.App
 
                 // Multi-arranque: prueba distintos órdenes de colocación y conserva el mejor resultado.
                 // La rotación se ofrece solo con ambas medidas fijas, para no incumplir una medida única.
-                bool allowRotation = hasWidth && hasHeight && AllowRotationCheck.IsChecked == true;
+                bool allowRotation = AllowRotationCheck.IsChecked == true;
                 List<PhotoPlacement> bestLayout = null;
                 int bestPageCount = Int32.MaxValue;
                 int bestFragmentCount = Int32.MaxValue;
@@ -143,9 +145,7 @@ namespace SpeedPhotos.App
                 int baseCount = _photos.Count / desiredPages, extra = _photos.Count % desiredPages;
                 int maxPerPage = baseCount + (extra > 0 ? 1 : 0);
                 int bestCols = 1, bestRows = maxPerPage;
-                double averageRatio = 0;
-                foreach (PhotoItem photo in _photos) averageRatio += (double)photo.PixelWidth / Math.Max(1, photo.PixelHeight);
-                averageRatio /= _photos.Count;
+                double averageRatio = 1.0;
                 double bestScore = Double.NegativeInfinity;
                 for (int cols = 1; cols <= maxPerPage; cols++)
                 {
@@ -373,6 +373,7 @@ namespace SpeedPhotos.App
             SelectionToolbar.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
             MovePageCombo.Items.Clear();
             for (int i = 0; i < _pageCount; i++) MovePageCombo.Items.Add("Hoja " + (i + 1));
+            MovePageCombo.Items.Add("Nueva hoja");
             if (MovePageCombo.Items.Count > 0) MovePageCombo.SelectedIndex = selected ? _placements[_selectedPlacementIndex].Page : _currentPage;
         }
 
