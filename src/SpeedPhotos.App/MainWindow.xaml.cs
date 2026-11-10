@@ -8,6 +8,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Printing;
 using System.Windows.Documents;
+using System.Printing;
+using System.Windows.Documents;
 
 namespace SpeedPhotos.App
 {
@@ -162,13 +164,14 @@ namespace SpeedPhotos.App
                 AddCapabilityOptions(PaperSizeCombo, _printerCapabilities.PageMediaSizeCapability);
                 AddCapabilityOptions(PaperTypeCombo, _printerCapabilities.PageMediaTypeCapability);
                 AddCapabilityOptions(PrintQualityCombo, _printerCapabilities.PageResolutionCapability);
-                AddCapabilityOptions(DuplexCombo, _printerCapabilities.DuplexingCapability);
+                AddDuplexOptions(_printerCapabilities.DuplexingCapability);
                 AddCapabilityOptions(ColorModeCombo, _printerCapabilities.OutputColorCapability);
-                SetDefaultCapability(PaperSizeCombo, _selectedPrinter.DefaultPrintTicket.PageMediaSize);
-                SetDefaultCapability(PaperTypeCombo, _selectedPrinter.DefaultPrintTicket.PageMediaType);
-                SetDefaultCapability(PrintQualityCombo, _selectedPrinter.DefaultPrintTicket.PageResolution);
-                SetDefaultCapability(DuplexCombo, _selectedPrinter.DefaultPrintTicket.Duplexing);
-                SetDefaultCapability(ColorModeCombo, _selectedPrinter.DefaultPrintTicket.OutputColor);
+                PrintTicket defaultTicket = _selectedPrinter.DefaultPrintTicket ?? new PrintTicket();
+                SetDefaultCapability(PaperSizeCombo, defaultTicket.PageMediaSize);
+                SetDefaultCapability(PaperTypeCombo, defaultTicket.PageMediaType);
+                SetDefaultCapability(PrintQualityCombo, defaultTicket.PageResolution);
+                SetDefaultCapability(DuplexCombo, defaultTicket.Duplexing);
+                SetDefaultCapability(ColorModeCombo, defaultTicket.OutputColor);
                 if (PaperSizeCombo.SelectedIndex < 0 && PaperSizeCombo.Items.Count > 0) PaperSizeCombo.SelectedIndex = 0;
                 if (PaperTypeCombo.SelectedIndex < 0 && PaperTypeCombo.Items.Count > 0) PaperTypeCombo.SelectedIndex = 0;
                 if (PrintQualityCombo.SelectedIndex < 0 && PrintQualityCombo.Items.Count > 0) PrintQualityCombo.SelectedIndex = 0;
@@ -239,16 +242,17 @@ namespace SpeedPhotos.App
             {
                 var ticket = _selectedPrinter.DefaultPrintTicket ?? new PrintTicket();
                 var size = SelectedCapability<PageMediaSize>(PaperSizeCombo);
-                var type = SelectedCapability<PageMediaType>(PaperTypeCombo);
+                var type = SelectedEnumCapability<PageMediaType>(PaperTypeCombo);
                 var resolution = SelectedCapability<PageResolution>(PrintQualityCombo);
                 if (size != null) ticket.PageMediaSize = size;
+                ticket.PageOrientation = OrientationCombo.SelectedIndex == 1 ? PageOrientation.Landscape : PageOrientation.Portrait;
                 if (type.HasValue) ticket.PageMediaType = type.Value;
                 if (resolution != null) ticket.PageResolution = resolution;
-                var color = SelectedCapability<OutputColor>(ColorModeCombo);
+                var color = SelectedEnumCapability<OutputColor>(ColorModeCombo);
                 if (color.HasValue) ticket.OutputColor = color.Value;
                 if (DuplexCheck.IsChecked == true)
                 {
-                    var duplex = SelectedCapability<Duplexing>(DuplexCombo);
+                    var duplex = SelectedEnumCapability<Duplexing>(DuplexCombo);
                     if (duplex.HasValue && (duplex.Value == Duplexing.TwoSidedLongEdge || duplex.Value == Duplexing.TwoSidedShortEdge))
                         ticket.Duplexing = duplex.Value;
                 }
@@ -281,7 +285,7 @@ namespace SpeedPhotos.App
                     }
                     fixedPage.Children.Add(canvas);
                     var content = new PageContent();
-                    ((IAddChild)content).AddChild(fixedPage);
+                    content.Child = fixedPage;
                     document.Pages.Add(content);
                 }
                 dialog.PrintDocument(document.DocumentPaginator, "SpeedPhotos");
@@ -294,11 +298,39 @@ namespace SpeedPhotos.App
             }
         }
 
-        private static T SelectedCapability<T>(ComboBox combo) where T : struct
+        private static T SelectedCapability<T>(ComboBox combo) where T : class
         {
             var item = combo.SelectedItem as ComboBoxItem;
-            if (item == null || !(item.Tag is T)) return default(T);
+            return item == null ? null : item.Tag as T;
+        }
+
+        private static Nullable<T> SelectedEnumCapability<T>(ComboBox combo) where T : struct
+        {
+            var item = combo.SelectedItem as ComboBoxItem;
+            if (item == null || !(item.Tag is T)) return null;
             return (T)item.Tag;
+        }
+
+        private void AddDuplexOptions(IList<Duplexing> capabilities)
+        {
+            DuplexCombo.Items.Clear();
+            if (capabilities == null) return;
+            foreach (Duplexing mode in capabilities)
+            {
+                if (mode == Duplexing.TwoSidedLongEdge)
+                    DuplexCombo.Items.Add(new ComboBoxItem { Content = "Doble cara - borde largo", Tag = mode });
+                else if (mode == Duplexing.TwoSidedShortEdge)
+                    DuplexCombo.Items.Add(new ComboBoxItem { Content = "Doble cara - borde corto", Tag = mode });
+            }
+            if (DuplexCombo.Items.Count > 0) DuplexCombo.SelectedIndex = 0;
+        }
+
+        private void PrinterPaperSize_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_loadingPrinterOptions || !IsLoaded) return;
+            PageMediaSize media = SelectedCapability<PageMediaSize>(PaperSizeCombo);
+            if (media != null && media.Width.HasValue && media.Height.HasValue && _photos.Count > 0)
+                GenerateLayout_Click(this, new RoutedEventArgs());
         }
 
         private void PhotosList_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -974,7 +1006,13 @@ namespace SpeedPhotos.App
 
         private void GetPaperSize(out double width, out double height)
         {
-            switch (PaperCombo.SelectedIndex)
+            PageMediaSize printerSize = SelectedCapability<PageMediaSize>(PaperSizeCombo);
+            if (printerSize != null && printerSize.Width.HasValue && printerSize.Height.HasValue)
+            {
+                width = printerSize.Width.Value * 2.54 / Dpi;
+                height = printerSize.Height.Value * 2.54 / Dpi;
+            }
+            else switch (PaperCombo.SelectedIndex)
             {
                 case 1: width = 21.0; height = 29.7; break;
                 case 2: width = 21.59; height = 33.0; break;
