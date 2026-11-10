@@ -1,0 +1,62 @@
+name: Build and publish SpeedPhotos installer
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure build tools
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Set release version
+        shell: pwsh
+        run: |
+          $version = "${{ github.event.release.tag_name }}".TrimStart('v', 'V')
+          if ($version -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
+            throw "La etiqueta debe tener formato vX.Y.Z o X.Y.Z. Valor recibido: $version"
+          }
+          if ($version.Split('.').Count -eq 3) { $assemblyVersion = "$version.0" } else { $assemblyVersion = $version }
+          $assemblyFile = "src/SpeedPhotos.App/Properties/AssemblyInfo.cs"
+          $text = Get-Content $assemblyFile -Raw
+          $text = [regex]::Replace($text, 'AssemblyVersion\("[^"]+"\)', "AssemblyVersion(`"$assemblyVersion`")")
+          $text = [regex]::Replace($text, 'AssemblyFileVersion\("[^"]+"\)', "AssemblyFileVersion(`"$assemblyVersion`")")
+          Set-Content -Path $assemblyFile -Value $text -Encoding UTF8
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build solution
+        run: msbuild .\SpeedPhotos.sln /t:Rebuild /p:Configuration=Release /m /v:minimal
+
+      - name: Prepare application files
+        shell: pwsh
+        run: |
+          $source = "src/SpeedPhotos.App/bin/Release"
+          if (-not (Test-Path "$source/SpeedPhotos.exe")) { throw "No se encontró SpeedPhotos.exe después de compilar." }
+          New-Item -ItemType Directory -Force -Path "installer/publish" | Out-Null
+          Copy-Item "$source/*" "installer/publish/" -Recurse -Force
+
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+
+      - name: Create installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "No se encontró el compilador de Inno Setup." }
+          & $iscc "/DMyAppVersion=$env:APP_VERSION" "installer/SpeedPhotos.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Falló la creación del instalador." }
+
+      - name: Attach installer to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: installer/Output/SpeedPhotos-Setup.exe
+          fail_on_unmatched_files: true
