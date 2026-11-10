@@ -328,6 +328,7 @@ namespace SpeedPhotos.App
                     BorderThickness = selected ? new Thickness(2) : new Thickness(0.5),
                     ClipToBounds = true, Background = Brushes.White, Cursor = System.Windows.Input.Cursors.Hand,
                     ToolTip = "Clic para seleccionar esta fotografía" };
+                System.Windows.Controls.Panel.SetZIndex(frame, selected ? 10000 : 0);
                 int capturedIndex = placementIndex;
                 frame.MouseLeftButtonDown += delegate(object sender, System.Windows.Input.MouseButtonEventArgs args)
                 {
