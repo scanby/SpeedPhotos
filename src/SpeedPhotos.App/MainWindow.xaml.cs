@@ -360,27 +360,39 @@ namespace SpeedPhotos.App
                 };
                 frame.MouseLeftButtonUp += delegate(object sender, System.Windows.Input.MouseButtonEventArgs args)
                 {
+                    // Lee la posición antes de liberar la captura del ratón.
+                    double nx = Canvas.GetLeft(frame) / scale;
+                    double ny = Canvas.GetTop(frame) / scale;
                     if (frame.IsMouseCaptured) frame.ReleaseMouseCapture();
+
                     if (_isDraggingPlacement)
                     {
-                        double nx = Canvas.GetLeft(frame) / scale, ny = Canvas.GetTop(frame) / scale;
-                        double margin = 0, gap = 0; ReadNonNegative(MarginText.Text, out margin); ReadNonNegative(GapText.Text, out gap);
-                        if (nx < margin || ny < margin || nx + p.Width > _pageWidthCm - margin || ny + p.Height > _pageHeightCm - margin)
-                        {
-                            p.X = _dragOriginalX; p.Y = _dragOriginalY;
-                            StatusText.Text = "Movimiento cancelado: la fotografía queda fuera de los márgenes.";
-                        }
-                        else
-                        {
-                            double[] oldX = new double[_placements.Count];
-                            double[] oldY = new double[_placements.Count];
-                            for (int i = 0; i < _placements.Count; i++) { oldX[i] = _placements[i].X; oldY[i] = _placements[i].Y; }
-                            p.X = nx; p.Y = ny;
-                            ReflowPageAfterDrop(capturedIndex, margin, gap);
-                            StatusText.Text = "Fotografía reubicada. Se reorganizaron las demás posiciones disponibles.";
-                        }
+                        double margin = 0, gap = 0;
+                        ReadNonNegative(MarginText.Text, out margin);
+                        ReadNonNegative(GapText.Text, out gap);
+
+                        // Limita el movimiento al área imprimible en lugar de cancelar
+                        // el arrastre cuando el usuario suelta cerca del borde inferior o lateral.
+                        double maxX = _pageWidthCm - margin - p.Width;
+                        double maxY = _pageHeightCm - margin - p.Height;
+                        if (maxX < margin) maxX = margin;
+                        if (maxY < margin) maxY = margin;
+                        double boundedX = Math.Max(margin, Math.Min(nx, maxX));
+                        double boundedY = Math.Max(margin, Math.Min(ny, maxY));
+                        bool wasLimited = Math.Abs(boundedX - nx) > 0.0001 ||
+                            Math.Abs(boundedY - ny) > 0.0001;
+
+                        p.X = boundedX;
+                        p.Y = boundedY;
+                        ReflowPageAfterDrop(capturedIndex, margin, gap);
+                        StatusText.Text = wasLimited
+                            ? "Fotografía ajustada al margen de la hoja y reubicada. Se reorganizaron las demás posiciones disponibles."
+                            : "Fotografía reubicada. Se reorganizaron las demás posiciones disponibles.";
                     }
-                    _isDraggingPlacement = false; RenderCurrentPage(); args.Handled = true;
+
+                    _isDraggingPlacement = false;
+                    RenderCurrentPage();
+                    args.Handled = true;
                 };
                                 var image = new Image { Stretch = AspectCombo.SelectedIndex == 0 ? Stretch.Uniform : Stretch.Fill };
                 var source = new BitmapImage();
