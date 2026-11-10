@@ -81,8 +81,6 @@ namespace SpeedPhotos.App
             bool keepAspect = AspectCombo.SelectedIndex == 0;
             if (hasWidth || hasHeight)
             {
-                // Empaquetamiento MaxRects: busca el mejor espacio libre disponible en cualquier hoja.
-                // Ordenar primero las piezas grandes reduce los huecos difíciles de aprovechar.
                 var items = new List<LayoutItem>();
                 for (int i = 0; i < _photos.Count; i++)
                 {
@@ -97,68 +95,36 @@ namespace SpeedPhotos.App
                     }
                     items.Add(new LayoutItem { PhotoIndex = i, Width = cellW, Height = cellH });
                 }
-                items.Sort(delegate(LayoutItem a, LayoutItem b)
+
+                // Multi-arranque: prueba distintos órdenes de colocación y conserva el mejor resultado.
+                // La rotación se ofrece solo con ambas medidas fijas, para no incumplir una medida única.
+                bool allowRotation = hasWidth && hasHeight && AllowRotationCheck.IsChecked == true;
+                List<PhotoPlacement> bestLayout = null;
+                int bestPageCount = Int32.MaxValue;
+                int bestFragmentCount = Int32.MaxValue;
+                for (int strategy = 0; strategy < 4; strategy++)
                 {
-                    int bySide = Math.Max(b.Width, b.Height).CompareTo(Math.Max(a.Width, a.Height));
-                    return bySide != 0 ? bySide : (b.Width * b.Height).CompareTo(a.Width * a.Height);
-                });
-
-                var pages = new List<List<FreeRectangle>>();
-                foreach (LayoutItem item in items)
-                {
-                    double packedW = item.Width + gap;
-                    double packedH = item.Height + gap;
-                    int bestPage = -1, bestRect = -1;
-                    double bestShortSide = Double.MaxValue, bestLongSide = Double.MaxValue;
-
-                    // Busca el encaje más ajustado entre todos los espacios libres de todas las hojas.
-                    for (int p = 0; p < pages.Count; p++)
+                    var ordered = new List<LayoutItem>(items);
+                    SortLayoutItems(ordered, strategy);
+                    List<PhotoPlacement> candidate;
+                    int candidatePages, fragments;
+                    BuildMaxRectsLayout(ordered, usableW, usableH, margin, gap, allowRotation,
+                        out candidate, out candidatePages, out fragments);
+                    if (candidate == null)
                     {
-                        for (int r = 0; r < pages[p].Count; r++)
-                        {
-                            FreeRectangle free = pages[p][r];
-                            if (packedW <= free.Width + 0.0001 && packedH <= free.Height + 0.0001)
-                            {
-                                double leftoverW = free.Width - packedW;
-                                double leftoverH = free.Height - packedH;
-                                double shortSide = Math.Min(leftoverW, leftoverH);
-                                double longSide = Math.Max(leftoverW, leftoverH);
-                                if (shortSide < bestShortSide ||
-                                    (Math.Abs(shortSide - bestShortSide) < 0.0001 && longSide < bestLongSide))
-                                {
-                                    bestShortSide = shortSide;
-                                    bestLongSide = longSide;
-                                    bestPage = p;
-                                    bestRect = r;
-                                }
-                            }
-                        }
+                        MessageBox.Show("No fue posible distribuir todas las fotografías. Revisa las medidas y la separación.");
+                        return;
                     }
-
-                    if (bestPage < 0)
+                    if (candidatePages < bestPageCount ||
+                        (candidatePages == bestPageCount && fragments < bestFragmentCount))
                     {
-                        pages.Add(new List<FreeRectangle> {
-                            new FreeRectangle { X = margin, Y = margin, Width = usableW + gap, Height = usableH + gap }
-                        });
-                        bestPage = pages.Count - 1;
-                        bestRect = 0;
-                        if (packedW > usableW + gap + 0.0001 || packedH > usableH + gap + 0.0001)
-                        {
-                            MessageBox.Show("No fue posible ubicar la fotografía " + _photos[item.PhotoIndex].FileName + ".");
-                            return;
-                        }
+                        bestLayout = candidate;
+                        bestPageCount = candidatePages;
+                        bestFragmentCount = fragments;
                     }
-
-                    FreeRectangle chosen = pages[bestPage][bestRect];
-                    _placements.Add(new PhotoPlacement {
-                        PhotoIndex = item.PhotoIndex, Page = bestPage,
-                        X = chosen.X, Y = chosen.Y, Width = item.Width, Height = item.Height
-                    });
-
-                    // Divide los rectángulos libres que se cruzan con la pieza recién colocada.
-                    SplitFreeRectangles(pages[bestPage], chosen, packedW, packedH);
                 }
-                _pageCount = pages.Count;
+                _placements.AddRange(bestLayout);
+                _pageCount = bestPageCount;
             }
             else
             {
@@ -204,6 +170,96 @@ namespace SpeedPhotos.App
             StatusText.Text = _photos.Count + " fotografías distribuidas en " + _pageCount + " hoja(s). " +
                 (hasWidth || hasHeight ? "Medida de referencia: " + (hasWidth ? width.ToString("0.##") + " cm de ancho" : height.ToString("0.##") + " cm de alto") + "." : "Reparto optimizado entre las hojas solicitadas.") +
                 (keepAspect ? " Proporción original conservada." : " Ajuste exacto seleccionado.");
+        }
+
+        private static void SortLayoutItems(List<LayoutItem> items, int strategy)
+        {
+            items.Sort(delegate(LayoutItem a, LayoutItem b)
+            {
+                double areaA = a.Width * a.Height, areaB = b.Width * b.Height;
+                double sideA = Math.Max(a.Width, a.Height), sideB = Math.Max(b.Width, b.Height);
+                double minA = Math.Min(a.Width, a.Height), minB = Math.Min(b.Width, b.Height);
+                switch (strategy)
+                {
+                    case 0: return areaB.CompareTo(areaA);
+                    case 1: return sideB.CompareTo(sideA);
+                    case 2: return b.Height.CompareTo(a.Height);
+                    default: return b.Width.CompareTo(a.Width);
+                }
+            });
+        }
+
+        private static void BuildMaxRectsLayout(List<LayoutItem> items, double pageW, double pageH,
+            double margin, double gap, bool allowRotation, out List<PhotoPlacement> placements,
+            out int pageCount, out int fragmentCount)
+        {
+            placements = new List<PhotoPlacement>();
+            var pages = new List<List<FreeRectangle>>();
+            foreach (LayoutItem item in items)
+            {
+                double normalW = item.Width + gap, normalH = item.Height + gap;
+                double rotatedW = item.Height + gap, rotatedH = item.Width + gap;
+                int bestPage = -1, bestRect = -1;
+                bool bestRotated = false;
+                double bestShort = Double.MaxValue, bestLong = Double.MaxValue, bestArea = Double.MaxValue;
+
+                for (int p = 0; p < pages.Count; p++)
+                {
+                    for (int r = 0; r < pages[p].Count; r++)
+                    {
+                        FreeRectangle free = pages[p][r];
+                        EvaluateFit(free, normalW, normalH, false, p, r,
+                            ref bestPage, ref bestRect, ref bestRotated, ref bestShort, ref bestLong, ref bestArea);
+                        if (allowRotation)
+                            EvaluateFit(free, rotatedW, rotatedH, true, p, r,
+                                ref bestPage, ref bestRect, ref bestRotated, ref bestShort, ref bestLong, ref bestArea);
+                    }
+                }
+
+                if (bestPage < 0)
+                {
+                    pages.Add(new List<FreeRectangle> {
+                        new FreeRectangle { X = margin, Y = margin, Width = pageW + gap, Height = pageH + gap }
+                    });
+                    bestPage = pages.Count - 1;
+                    bestRect = 0;
+                    FreeRectangle first = pages[bestPage][0];
+                    bool normalFits = normalW <= first.Width + 0.0001 && normalH <= first.Height + 0.0001;
+                    bool rotatedFits = allowRotation && rotatedW <= first.Width + 0.0001 && rotatedH <= first.Height + 0.0001;
+                    if (!normalFits && !rotatedFits) { placements = null; pageCount = 0; fragmentCount = 0; return; }
+                    bestRotated = !normalFits && rotatedFits;
+                }
+
+                FreeRectangle chosen = pages[bestPage][bestRect];
+                double placedW = bestRotated ? item.Height : item.Width;
+                double placedH = bestRotated ? item.Width : item.Height;
+                var used = new FreeRectangle { X = chosen.X, Y = chosen.Y,
+                    Width = placedW + gap, Height = placedH + gap };
+                placements.Add(new PhotoPlacement { PhotoIndex = item.PhotoIndex, Page = bestPage,
+                    X = chosen.X, Y = chosen.Y, Width = placedW, Height = placedH, Rotated = bestRotated });
+                SplitFreeRectangles(pages[bestPage], used, used.Width, used.Height);
+            }
+            pageCount = pages.Count;
+            fragmentCount = 0;
+            foreach (List<FreeRectangle> page in pages) fragmentCount += page.Count;
+        }
+
+        private static void EvaluateFit(FreeRectangle free, double width, double height, bool rotated,
+            int page, int rect, ref int bestPage, ref int bestRect, ref bool bestRotated,
+            ref double bestShort, ref double bestLong, ref double bestArea)
+        {
+            if (width > free.Width + 0.0001 || height > free.Height + 0.0001) return;
+            double leftoverW = free.Width - width, leftoverH = free.Height - height;
+            double shortSide = Math.Min(leftoverW, leftoverH);
+            double longSide = Math.Max(leftoverW, leftoverH);
+            double area = free.Width * free.Height - width * height;
+            if (shortSide < bestShort ||
+                (Math.Abs(shortSide - bestShort) < 0.0001 && longSide < bestLong) ||
+                (Math.Abs(shortSide - bestShort) < 0.0001 && Math.Abs(longSide - bestLong) < 0.0001 && area < bestArea))
+            {
+                bestShort = shortSide; bestLong = longSide; bestArea = area;
+                bestPage = page; bestRect = rect; bestRotated = rotated;
+            }
         }
 
         private static void SplitFreeRectangles(List<FreeRectangle> freeRects, FreeRectangle used, double usedW, double usedH)
@@ -263,7 +319,7 @@ namespace SpeedPhotos.App
                 var image = new Image { Stretch = AspectCombo.SelectedIndex == 0 ? Stretch.Uniform : Stretch.Fill };
                 var source = new BitmapImage();
                 source.BeginInit(); source.UriSource = new Uri(_photos[p.PhotoIndex].FilePath); source.CacheOption = BitmapCacheOption.OnLoad; source.EndInit(); source.Freeze();
-                image.Source = source; frame.Child = image;
+                image.Source = source;\n                if (p.Rotated) image.LayoutTransform = new RotateTransform(90);\n                frame.Child = image;
                 Canvas.SetLeft(frame, p.X * scale); Canvas.SetTop(frame, p.Y * scale); PreviewCanvas.Children.Add(frame);
             }
             UpdatePageNavigation();
