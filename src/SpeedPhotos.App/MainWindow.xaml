@@ -7,7 +7,7 @@
         <Button Content="Limpiar selección" Padding="14,8" Margin="8,0,0,0" Click="ClearPhotos_Click"/>
       </StackPanel>
     </DockPanel></Border>
-    <StatusBar DockPanel.Dock="Bottom"><StatusBarItem><TextBlock x:Name="StatusText" Text="Listo. Importa fotografías para comenzar."/></StatusBarItem></StatusBar>
+    <Border x:Name="SelectionToolbar" DockPanel.Dock="Bottom" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="0,1,0,0" Padding="12,9" Visibility="Collapsed"><StackPanel Orientation="Horizontal"><TextBlock Text="Imagen seleccionada:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/><Button Content="Girar 90°" Padding="12,6" Margin="0,0,6,0" Click="RotateSelected_Click"/><TextBlock Text="Copias:" VerticalAlignment="Center" Margin="8,0,3,0"/><TextBox x:Name="CopiesText" Text="1" Width="42" Padding="5" VerticalContentAlignment="Center" Margin="0,0,6,0"/><Button Content="Duplicar" Padding="12,6" Margin="0,0,6,0" Click="DuplicateSelected_Click"/><Button Content="Eliminar" Padding="12,6" Margin="0,0,18,0" Background="#FEE2E2" Foreground="#991B1B" Click="DeleteSelected_Click"/><TextBlock Text="Mover a hoja:" VerticalAlignment="Center" Margin="0,0,5,0"/><ComboBox x:Name="MovePageCombo" Width="90" Padding="4" Margin="0,0,6,0"/><Button Content="Mover" Padding="12,6" Click="MoveSelectedToPage_Click"/><TextBlock Text="Arrastra la imagen para cambiar su posición en esta hoja." Foreground="#64748B" VerticalAlignment="Center" Margin="18,0,0,0"/></StackPanel></Border><StatusBar DockPanel.Dock="Bottom"><StatusBarItem><TextBlock x:Name="StatusText" Text="Listo. Importa fotografías para comenzar."/></StatusBarItem></StatusBar>
     <Grid Margin="16">
       <Grid.ColumnDefinitions><ColumnDefinition Width="250"/><ColumnDefinition Width="*"/><ColumnDefinition Width="260"/></Grid.ColumnDefinitions>
       <Border Grid.Column="0" Background="White" CornerRadius="8" Padding="14" Margin="0,0,12,0">
@@ -25,15 +25,12 @@
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
               <Button x:Name="PreviousPageButton" Content="◀ Anterior" Padding="8,4" Margin="4,0" Click="PreviousPage_Click" IsEnabled="False"/>
               <TextBlock x:Name="PageIndicator" Text="Hoja 0 de 0" VerticalAlignment="Center" Margin="8,0"/>
-              <Button Content="Girar 90°" Padding="8,4" Margin="4,0" Click="RotateSelected_Click"/>
-              <TextBlock Text="Copias:" VerticalAlignment="Center" Margin="6,0,2,0"/>
-              <TextBox x:Name="CopiesText" Text="1" Width="34" Padding="4" VerticalContentAlignment="Center"/>
-              <Button Content="Duplicar" Padding="8,4" Margin="4,0" Click="DuplicateSelected_Click"/>
+              
               <Button x:Name="NextPageButton" Content="Siguiente ▶" Padding="8,4" Margin="4,0" Click="NextPage_Click" IsEnabled="False"/>
             </StackPanel>
           </DockPanel>
           <Border Grid.Row="1" Background="#E9EEF5" BorderBrush="#CBD5E1" BorderThickness="1" Padding="12">
-            <Viewbox Stretch="Uniform"><Canvas x:Name="PreviewCanvas" Width="816" Height="1056" Background="White"/></Viewbox>
+            <Viewbox Stretch="Uniform"><Canvas x:Name="PreviewCanvas" Width="816" Height="1056" Background="White" AllowDrop="True" DragOver="PreviewCanvas_DragOver" Drop="PreviewCanvas_Drop"/></Viewbox>
           </Border>
         </Grid>
       </Border>
