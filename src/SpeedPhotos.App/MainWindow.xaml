@@ -1,4 +1,4 @@
-<Window x:Class="SpeedPhotos.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="SpeedPhotos" Height="720" Width="1150" MinHeight="600" MinWidth="950" WindowStartupLocation="CenterScreen" Background="#EEF1F6">
+<Window x:Class="SpeedPhotos.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="SpeedPhotos" Height="760" Width="1250" MinHeight="650" MinWidth="1050" WindowStartupLocation="CenterScreen" Background="#EEF1F6">
   <DockPanel>
     <Border DockPanel.Dock="Top" Background="#172033" Padding="18,12"><DockPanel>
       <TextBlock Text="SpeedPhotos" Foreground="White" FontSize="23" FontWeight="Bold" VerticalAlignment="Center"/>
@@ -9,37 +9,35 @@
     </DockPanel></Border>
     <StatusBar DockPanel.Dock="Bottom"><StatusBarItem><TextBlock x:Name="StatusText" Text="Listo. Importa fotografías para comenzar."/></StatusBarItem></StatusBar>
     <Grid Margin="16">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="280"/><ColumnDefinition Width="*"/><ColumnDefinition Width="250"/></Grid.ColumnDefinitions>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="250"/><ColumnDefinition Width="*"/><ColumnDefinition Width="260"/></Grid.ColumnDefinitions>
       <Border Grid.Column="0" Background="White" CornerRadius="8" Padding="14" Margin="0,0,12,0">
-        <DockPanel><TextBlock DockPanel.Dock="Top" Text="FOTOGRAFÍAS" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,12"/>
+        <DockPanel><TextBlock DockPanel.Dock="Top" Text="FOTOGRAFÍAS IMPORTADAS" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,12"/>
           <ListBox x:Name="PhotosList" BorderThickness="0"><ListBox.ItemTemplate><DataTemplate><DockPanel Margin="0,4">
             <Image Source="{Binding Thumbnail}" Width="54" Height="54" Stretch="UniformToFill" Margin="0,0,10,0"/>
             <TextBlock Text="{Binding FileName}" VerticalAlignment="Center" TextWrapping="Wrap"/>
           </DockPanel></DataTemplate></ListBox.ItemTemplate></ListBox>
         </DockPanel>
       </Border>
-      <Border Grid.Column="1" Background="White" CornerRadius="8" Padding="18" Margin="0,0,12,0">
+      <Border Grid.Column="1" Background="White" CornerRadius="8" Padding="16" Margin="0,0,12,0">
         <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-          <TextBlock Text="VISTA PREVIA DE LA HOJA" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,14"/>
-          <Border Grid.Row="1" Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1">
-            <Viewbox Stretch="Uniform" Margin="30"><Border Width="420" Height="594" Background="White" BorderBrush="#94A3B8" BorderThickness="1">
-              <TextBlock Text="La composición aparecerá aquí" Foreground="#94A3B8" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="18"/>
-            </Border></Viewbox>
+          <TextBlock Text="VISTA PREVIA DE IMPRESIÓN" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,12"/>
+          <Border Grid.Row="1" Background="#E9EEF5" BorderBrush="#CBD5E1" BorderThickness="1" Padding="12">
+            <Viewbox Stretch="Uniform"><Canvas x:Name="PreviewCanvas" Width="816" Height="1056" Background="White"/></Viewbox>
           </Border>
         </Grid>
       </Border>
       <Border Grid.Column="2" Background="White" CornerRadius="8" Padding="14">
-        <StackPanel>
-          <TextBlock Text="CONFIGURACIÓN" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,16"/>
-          <TextBlock Text="Tamaño de papel"/>
-          <ComboBox SelectedIndex="0" Margin="0,5,0,14" Padding="5"><ComboBoxItem Content="Carta (21,59 × 27,94 cm)"/><ComboBoxItem Content="A4 (21 × 29,7 cm)"/><ComboBoxItem Content="Oficio (21,59 × 33 cm)"/></ComboBox>
-          <TextBlock Text="Fotografías por hoja"/>
-          <ComboBox SelectedIndex="0" Margin="0,5,0,14" Padding="5"><ComboBoxItem Content="1 fotografía"/><ComboBoxItem Content="2 fotografías"/><ComboBoxItem Content="4 fotografías"/><ComboBoxItem Content="6 fotografías"/><ComboBoxItem Content="8 fotografías"/></ComboBox>
-          <TextBlock Text="Ancho de fotografía (cm)"/><TextBox Text="10" Margin="0,5,0,12" Padding="6"/>
-          <TextBlock Text="Alto de fotografía (cm)"/><TextBox Text="15" Margin="0,5,0,16" Padding="6"/>
+        <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
+          <TextBlock Text="CONFIGURACIÓN DE HOJA" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,16"/>
+          <TextBlock Text="Tamaño de papel"/><ComboBox x:Name="PaperCombo" SelectedIndex="0" Margin="0,5,0,12" Padding="5" SelectionChanged="Settings_Changed"><ComboBoxItem Content="Carta"/><ComboBoxItem Content="A4"/><ComboBoxItem Content="Oficio"/></ComboBox>
+          <TextBlock Text="Fotografías por hoja"/><ComboBox x:Name="CountCombo" SelectedIndex="0" Margin="0,5,0,12" Padding="5" SelectionChanged="Settings_Changed"><ComboBoxItem Content="Automático"/><ComboBoxItem Content="1"/><ComboBoxItem Content="2"/><ComboBoxItem Content="4"/><ComboBoxItem Content="6"/><ComboBoxItem Content="8"/></ComboBox>
+          <TextBlock Text="Ancho de fotografía (cm)"/><TextBox x:Name="PhotoWidthText" Text="10" Margin="0,5,0,12" Padding="6"/>
+          <TextBlock Text="Alto de fotografía (cm)"/><TextBox x:Name="PhotoHeightText" Text="15" Margin="0,5,0,12" Padding="6"/>
+          <TextBlock Text="Margen de hoja (cm)"/><TextBox x:Name="MarginText" Text="0.5" Margin="0,5,0,12" Padding="6"/>
+          <TextBlock Text="Separación (cm)"/><TextBox x:Name="GapText" Text="0.3" Margin="0,5,0,16" Padding="6"/>
           <Button Content="Generar distribución" Padding="10" Background="#2563EB" Foreground="White" BorderThickness="0" Click="GenerateLayout_Click"/>
-          <TextBlock Text="La distribución automática y la edición manual se implementarán en la siguiente etapa." TextWrapping="Wrap" Foreground="#64748B" Margin="0,14,0,0"/>
-        </StackPanel>
+          <TextBlock Text="La vista previa representa la hoja y la posición de cada fotografía. Las imágenes se ajustan al tamaño indicado." TextWrapping="Wrap" Foreground="#64748B" Margin="0,14,0,0"/>
+        </StackPanel></ScrollViewer>
       </Border>
     </Grid>
   </DockPanel>
