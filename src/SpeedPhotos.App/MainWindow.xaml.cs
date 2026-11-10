@@ -48,7 +48,7 @@ namespace SpeedPhotos.App
 
         private void ClearPhotos_Click(object sender, RoutedEventArgs e)
         {
-            _photos.Clear(); _placements.Clear(); _pageCount = 0; _currentPage = 0;
+            _photos.Clear(); _placements.Clear(); _pageCount = 0; _currentPage = 0; _selectedPlacementIndex = -1;
             DrawEmptyPage(); UpdatePageNavigation(); StatusText.Text = "Selección de fotografías vaciada.";
         }
 
