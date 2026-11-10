@@ -30,22 +30,74 @@ namespace SpeedPhotos.App
         private void ImportPhotos_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFileDialog { Title = "Seleccionar fotografías", Filter = "Archivos de imagen|*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff|Todos los archivos|*.*", Multiselect = true };
-            if (dialog.ShowDialog() != true) return;
+            if (dialog.ShowDialog() == true) AddPhotoFiles(dialog.FileNames);
+        }
+
+        private void MainWindow_DragEnter(object sender, System.Windows.DragEventArgs e)
+        {
+            e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void MainWindow_DragOver(object sender, System.Windows.DragEventArgs e)
+        {
+            e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void MainWindow_Drop(object sender, System.Windows.DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effects = DragDropEffects.None;
+                return;
+            }
+
+            string[] files = e.Data.GetData(DataFormats.FileDrop) as string[];
+            if (files != null) AddPhotoFiles(files);
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
+        }
+
+        private void AddPhotoFiles(IEnumerable<string> files)
+        {
             int added = 0;
-            foreach (string file in dialog.FileNames)
+            int rejected = 0;
+            foreach (string file in files)
             {
                 try
                 {
+                    string extension = System.IO.Path.GetExtension(file).ToLowerInvariant();
+                    if (extension != ".jpg" && extension != ".jpeg" && extension != ".png" &&
+                        extension != ".bmp" && extension != ".tif" && extension != ".tiff")
+                    {
+                        rejected++;
+                        continue;
+                    }
+
                     var bitmap = new BitmapImage();
-                    bitmap.BeginInit(); bitmap.UriSource = new Uri(file); bitmap.DecodePixelWidth = 180;
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.EndInit(); bitmap.Freeze();
-                    _photos.Add(new PhotoItem { FileName = System.IO.Path.GetFileName(file), FilePath = file, Thumbnail = bitmap,
-                        PixelWidth = bitmap.PixelWidth, PixelHeight = bitmap.PixelHeight });
+                    bitmap.BeginInit();
+                    bitmap.UriSource = new Uri(file);
+                    bitmap.DecodePixelWidth = 180;
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.EndInit();
+                    bitmap.Freeze();
+
+                    _photos.Add(new PhotoItem
+                    {
+                        FileName = System.IO.Path.GetFileName(file),
+                        FilePath = file,
+                        Thumbnail = bitmap,
+                        PixelWidth = bitmap.PixelWidth,
+                        PixelHeight = bitmap.PixelHeight
+                    });
                     added++;
                 }
-                catch { }
+                catch { rejected++; }
             }
-            StatusText.Text = added + " fotografía(s) importada(s). Total: " + _photos.Count + ".";
+
+            StatusText.Text = added + " fotografía(s) importada(s). Total: " + _photos.Count +
+                (rejected > 0 ? ". " + rejected + " archivo(s) omitido(s) por formato no compatible o error de lectura." : ".");
         }
 
         private void ClearPhotos_Click(object sender, RoutedEventArgs e)
