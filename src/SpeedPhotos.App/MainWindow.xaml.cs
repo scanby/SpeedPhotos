@@ -387,5 +387,6 @@ namespace SpeedPhotos.App
         public double Y { get; set; }
         public double Width { get; set; }
         public double Height { get; set; }
+        public bool Rotated { get; set; }
     }
 }
