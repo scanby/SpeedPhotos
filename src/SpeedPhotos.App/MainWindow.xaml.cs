@@ -408,13 +408,26 @@ namespace SpeedPhotos.App
         private void MoveSelectedToPage_Click(object sender, RoutedEventArgs e)
         {
             if (_selectedPlacementIndex < 0 || _selectedPlacementIndex >= _placements.Count) return;
-            int targetPage = MovePageCombo.SelectedIndex; PhotoPlacement p = _placements[_selectedPlacementIndex];
-            if (targetPage < 0 || targetPage >= _pageCount || targetPage == p.Page) return;
-            double x, y, gap = 0, margin = 0; ReadNonNegative(GapText.Text, out gap); ReadNonNegative(MarginText.Text, out margin);
-            if (!FindFreePositionOnPage(targetPage, _selectedPlacementIndex, p.Width, p.Height, margin, gap, out x, out y))
-            { StatusText.Text = "No hay espacio suficiente en la hoja seleccionada."; return; }
-            p.Page = targetPage; p.X = x; p.Y = y; _currentPage = targetPage; RenderCurrentPage();
-            StatusText.Text = "Fotografía trasladada a la hoja " + (targetPage + 1) + ".";
+            int targetPage = MovePageCombo.SelectedIndex;
+            PhotoPlacement p = _placements[_selectedPlacementIndex];
+            if (targetPage < 0 || targetPage == p.Page) return;
+            double x, y, gap = 0, margin = 0;
+            ReadNonNegative(GapText.Text, out gap); ReadNonNegative(MarginText.Text, out margin);
+            if (targetPage == _pageCount)
+            {
+                x = margin; y = margin;
+                if (x + p.Width > _pageWidthCm - margin || y + p.Height > _pageHeightCm - margin)
+                { StatusText.Text = "La fotografía no cabe en una hoja nueva con los márgenes actuales."; return; }
+                p.Page = _pageCount; p.X = x; p.Y = y; _pageCount++;
+            }
+            else
+            {
+                if (targetPage >= _pageCount || !FindFreePositionOnPage(targetPage, _selectedPlacementIndex, p.Width, p.Height, margin, gap, out x, out y))
+                { StatusText.Text = "No hay espacio suficiente en la hoja seleccionada."; return; }
+                p.Page = targetPage; p.X = x; p.Y = y;
+            }
+            _currentPage = p.Page; RenderCurrentPage();
+            StatusText.Text = "Fotografía trasladada a la hoja " + (_currentPage + 1) + ".";
         }
 
         private bool FindFreePositionOnPage(int page, int excludedIndex, double width, double height, double margin, double gap, out double foundX, out double foundY)
