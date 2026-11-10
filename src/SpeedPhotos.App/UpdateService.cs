@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
@@ -45,8 +46,7 @@ namespace SpeedPhotos.App
                     if (latest <= current) return null;
 
                     string releasePage = release.ContainsKey("html_url") ? Convert.ToString(release["html_url"]) : null;
-                    var assets = release.ContainsKey("assets") as object;
-                    var assetList = release["assets"] as System.Collections.ArrayList;
+                    var assetList = release.ContainsKey("assets") ? release["assets"] as IEnumerable : null;
                     if (assetList == null)
                         throw new InvalidDataException("La publicación no contiene archivos descargables.");
 
