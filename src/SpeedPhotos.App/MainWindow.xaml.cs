@@ -63,7 +63,7 @@ namespace SpeedPhotos.App
         private void GenerateLayout_Click(object sender, RoutedEventArgs e)
         {
             if (_photos.Count == 0) { StatusText.Text = "Primero importa fotografías."; return; }
-            double width = 0, height = 0, margin, gap;
+            double width = 0, height = 0, margin = 0, gap = 0;
             bool hasWidth = !String.IsNullOrWhiteSpace(PhotoWidthText.Text);
             bool hasHeight = !String.IsNullOrWhiteSpace(PhotoHeightText.Text);
             string invalidField = null;
