@@ -135,14 +135,19 @@ namespace SpeedPhotos.App
                 int baseCount = _photos.Count / desiredPages, extra = _photos.Count % desiredPages;
                 int maxPerPage = baseCount + (extra > 0 ? 1 : 0);
                 int bestCols = 1, bestRows = maxPerPage;
-                double bestScore = -1;
+                double averageRatio = 0;
+                foreach (PhotoItem photo in _photos) averageRatio += (double)photo.PixelWidth / Math.Max(1, photo.PixelHeight);
+                averageRatio /= _photos.Count;
+                double bestScore = Double.NegativeInfinity;
                 for (int cols = 1; cols <= maxPerPage; cols++)
                 {
                     int rows = (int)Math.Ceiling((double)maxPerPage / cols);
                     double cellW = (usableW - gap * (cols - 1)) / cols;
                     double cellH = (usableH - gap * (rows - 1)) / rows;
                     if (cellW <= 0 || cellH <= 0) continue;
-                    double score = cellW * cellH;
+                    double cellRatio = cellW / cellH;
+                    double ratioPenalty = Math.Abs(Math.Log(cellRatio / averageRatio));
+                    double score = cellW * cellH / (1.0 + ratioPenalty * 0.35);
                     if (score > bestScore) { bestScore = score; bestCols = cols; bestRows = rows; }
                 }
                 double slotW = (usableW - gap * (bestCols - 1)) / bestCols;
