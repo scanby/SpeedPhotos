@@ -66,13 +66,21 @@ namespace SpeedPhotos.App
         {
             if (_photos.Count == 0) { StatusText.Text = "Primero importa fotografías."; return; }
             double width = 0, height = 0, margin = 0, gap = 0;
-            bool hasWidth = !String.IsNullOrWhiteSpace(PhotoWidthText.Text);
-            bool hasHeight = !String.IsNullOrWhiteSpace(PhotoHeightText.Text);
+            bool hasWidth = false;
+            bool hasHeight = false;
             string invalidField = null;
-            if (hasWidth && (!ReadPositive(PhotoWidthText.Text, out width))) invalidField = "Ancho de fotografía";
-            else if (hasHeight && (!ReadPositive(PhotoHeightText.Text, out height))) invalidField = "Alto de fotografía";
-            else if (!ReadNonNegative(MarginText.Text, out margin)) invalidField = "Margen de hoja";
-            else if (!ReadNonNegative(GapText.Text, out gap)) invalidField = "Separación";
+            if (!String.IsNullOrWhiteSpace(PhotoWidthText.Text))
+            {
+                if (!TryReadNumber(PhotoWidthText.Text, out width) || width < 0) invalidField = "Ancho de fotografía";
+                else hasWidth = width > 0;
+            }
+            if (invalidField == null && !String.IsNullOrWhiteSpace(PhotoHeightText.Text))
+            {
+                if (!TryReadNumber(PhotoHeightText.Text, out height) || height < 0) invalidField = "Alto de fotografía";
+                else hasHeight = height > 0;
+            }
+            if (invalidField == null && !ReadNonNegative(MarginText.Text, out margin)) invalidField = "Margen de hoja";
+            else if (invalidField == null && !ReadNonNegative(GapText.Text, out gap)) invalidField = "Separación";
             if (invalidField != null)
             {
                 MessageBox.Show("El valor del campo '" + invalidField + "' no es válido. Usa un número mayor que cero para ancho y alto, y un número igual o mayor que cero para margen y separación. Puedes usar coma o punto decimal.", "Configuración no válida");
@@ -402,8 +410,8 @@ namespace SpeedPhotos.App
         }
 
         // Reorganiza la hoja después de soltar una fotografía.
-        // Conserva las posiciones que puede y desplaza las afectadas primero a la derecha
-        // y después hacia abajo, siguiendo un recorrido de izquierda a derecha y de arriba abajo.
+        // Mantiene la foto soltada en su sitio y recoloca las demás: primero hacia la derecha
+        // en su misma fila y, si no caben, busca espacio en filas inferiores.
         private bool ReflowPageAfterDrop(int selectedIndex, double margin, double gap)
         {
             if (selectedIndex < 0 || selectedIndex >= _placements.Count) return false;
@@ -430,50 +438,74 @@ namespace SpeedPhotos.App
                 PhotoPlacement current = _placements[index];
                 double originalX = current.X;
                 double originalY = current.Y;
-                bool resolved = false;
+                bool found = false;
 
-                // Cada intento mueve la foto a la derecha del primer obstáculo.
-                // Si no cabe, baja a la siguiente posición disponible.
-                for (int attempt = 0; attempt < _placements.Count * 4 + 20; attempt++)
+                // Primero intenta conservar la posición original.
+                if (IsValidReflowPosition(current, placed, originalX, originalY, margin, gap, rightLimit, bottomLimit))
                 {
-                    PhotoPlacement collision = null;
-                    foreach (int placedIndex in placed)
+                    found = true;
+                }
+                else
+                {
+                    // Intenta desplazarse hacia la derecha en la misma fila.
+                    const double step = 0.1;
+                    for (double x = Math.Max(margin, originalX + step);
+                        x + current.Width <= rightLimit + 0.0001; x += step)
                     {
-                        PhotoPlacement obstacle = _placements[placedIndex];
-                        bool overlaps = current.X < obstacle.X + obstacle.Width + gap - 0.0001 &&
-                            current.X + current.Width + gap > obstacle.X + 0.0001 &&
-                            current.Y < obstacle.Y + obstacle.Height + gap - 0.0001 &&
-                            current.Y + current.Height + gap > obstacle.Y + 0.0001;
-                        if (overlaps) { collision = obstacle; break; }
+                        if (IsValidReflowPosition(current, placed, x, originalY, margin, gap, rightLimit, bottomLimit))
+                        {
+                            current.X = x;
+                            current.Y = originalY;
+                            found = true;
+                            break;
+                        }
                     }
 
-                    if (collision == null)
+                    // Si no cabe a la derecha, busca desde el margen en filas inferiores.
+                    if (!found)
                     {
-                        if (current.X >= margin - 0.0001 && current.Y >= margin - 0.0001 &&
-                            current.X + current.Width <= rightLimit + 0.0001 &&
-                            current.Y + current.Height <= bottomLimit + 0.0001)
-                        { resolved = true; break; }
-                        return false;
+                        for (double y = originalY + step;
+                            y + current.Height <= bottomLimit + 0.0001 && !found; y += step)
+                        {
+                            for (double x = margin;
+                                x + current.Width <= rightLimit + 0.0001; x += step)
+                            {
+                                if (IsValidReflowPosition(current, placed, x, y, margin, gap, rightLimit, bottomLimit))
+                                {
+                                    current.X = x;
+                                    current.Y = y;
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
                     }
-
-                    double rightX = collision.X + collision.Width + gap;
-                    if (rightX + current.Width <= rightLimit + 0.0001 &&
-                        current.Y + current.Height <= bottomLimit + 0.0001)
-                    {
-                        current.X = rightX;
-                    }
-                    else
-                    {
-                        current.X = margin;
-                        current.Y = collision.Y + collision.Height + gap;
-                    }
-
-                    if (current.Y + current.Height > bottomLimit + 0.0001) return false;
                 }
 
-                if (!resolved) return false;
+                if (!found) return false;
                 placed.Add(index);
             }
+
+            return true;
+        }
+
+        private bool IsValidReflowPosition(PhotoPlacement current, List<int> placed,
+            double x, double y, double margin, double gap, double rightLimit, double bottomLimit)
+        {
+            if (x < margin - 0.0001 || y < margin - 0.0001 ||
+                x + current.Width > rightLimit + 0.0001 ||
+                y + current.Height > bottomLimit + 0.0001) return false;
+
+            foreach (int placedIndex in placed)
+            {
+                PhotoPlacement obstacle = _placements[placedIndex];
+                bool overlaps = x < obstacle.X + obstacle.Width + gap - 0.0001 &&
+                    x + current.Width + gap > obstacle.X + 0.0001 &&
+                    y < obstacle.Y + obstacle.Height + gap - 0.0001 &&
+                    y + current.Height + gap > obstacle.Y + 0.0001;
+                if (overlaps) return false;
+            }
+
             return true;
         }
 
