@@ -19,6 +19,8 @@ namespace SpeedPhotos.App
         private bool _isDraggingPlacement;
         private double _dragOffsetX, _dragOffsetY, _dragOriginalX, _dragOriginalY;
         private double _pageWidthCm, _pageHeightCm;
+        private Point _photoDragStart;
+        private PhotoItem _photoDragItem;
 
         public MainWindow()
         {
@@ -98,6 +100,57 @@ namespace SpeedPhotos.App
 
             StatusText.Text = added + " fotografía(s) importada(s). Total: " + _photos.Count +
                 (rejected > 0 ? ". " + rejected + " archivo(s) omitido(s) por formato no compatible o error de lectura." : ".");
+        }
+
+        private void PhotosList_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            _photoDragStart = e.GetPosition(PhotosList);
+            _photoDragItem = null;
+            var item = ItemsControl.ContainerFromElement(PhotosList, e.OriginalSource as DependencyObject) as ListBoxItem;
+            if (item != null) _photoDragItem = item.DataContext as PhotoItem;
+        }
+
+        private void PhotosList_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (e.LeftButton != System.Windows.Input.MouseButtonState.Pressed || _photoDragItem == null) return;
+            Point current = e.GetPosition(PhotosList);
+            if (Math.Abs(current.X - _photoDragStart.X) < SystemParameters.MinimumHorizontalDragDistance &&
+                Math.Abs(current.Y - _photoDragStart.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+
+            PhotoItem dragged = _photoDragItem;
+            _photoDragItem = null;
+            var data = new DataObject(typeof(PhotoItem), dragged);
+            DragDrop.DoDragDrop(PhotosList, data, DragDropEffects.Move);
+        }
+
+        private void PhotosList_DragOver(object sender, System.Windows.DragEventArgs e)
+        {
+            e.Effects = e.Data.GetDataPresent(typeof(PhotoItem)) ? DragDropEffects.Move : DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void PhotosList_Drop(object sender, System.Windows.DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent(typeof(PhotoItem))) return;
+            PhotoItem dragged = e.Data.GetData(typeof(PhotoItem)) as PhotoItem;
+            if (dragged == null) return;
+
+            int oldIndex = _photos.IndexOf(dragged);
+            if (oldIndex < 0) return;
+
+            var target = ItemsControl.ContainerFromElement(PhotosList, e.OriginalSource as DependencyObject) as ListBoxItem;
+            int newIndex = target == null ? _photos.Count - 1 : PhotosList.ItemContainerGenerator.IndexFromContainer(target);
+            if (newIndex < 0) newIndex = _photos.Count - 1;
+
+            if (oldIndex != newIndex)
+            {
+                _photos.Move(oldIndex, newIndex);
+                if (_placements.Count > 0)
+                    GenerateLayout_Click(this, new RoutedEventArgs());
+                else
+                    StatusText.Text = "Orden de fotografías actualizado.";
+            }
+            e.Handled = true;
         }
 
         private void ClearPhotos_Click(object sender, RoutedEventArgs e)
