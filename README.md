@@ -70,3 +70,24 @@ SpeedPhotos/
 Repositorio inicializado con documentación. El siguiente hito es crear la solución de Visual Studio y el esqueleto de los proyectos.
 
 Consulta [la arquitectura](docs/ARCHITECTURE.md) y el [plan de desarrollo](docs/ROADMAP.md).
+
+
+## Integración con el Explorador de Windows
+
+Se incluye un registro opcional del menú contextual para abrir imágenes directamente con SpeedPhotos. El registro es por usuario y no requiere permisos de administrador.
+
+Después de compilar la aplicación, abre PowerShell en la carpeta del repositorio y ejecuta:
+
+```powershell
+.\installer\Register-ContextMenu.ps1 -ExePath ".\src\SpeedPhotos.App\bin\Debug\SpeedPhotos.exe"
+```
+
+Luego selecciona una o varias imágenes en el Explorador, haz clic derecho y elige **Abrir con SpeedPhotos**. En Windows 11, la opción puede estar dentro de **Mostrar más opciones**.
+
+Para quitar la opción del menú contextual:
+
+```powershell
+.\installer\Unregister-ContextMenu.ps1
+```
+
+Si PowerShell bloquea la ejecución del script, ejecuta el comando con `-ExecutionPolicy Bypass -File` y la ruta del script. La opción se registra para el usuario actual de Windows.
