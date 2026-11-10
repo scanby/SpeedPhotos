@@ -42,6 +42,7 @@
           <TextBlock Text="Alto de fotografía (cm)"/><TextBox x:Name="PhotoHeightText" Text="15" Margin="0,5,0,10" Padding="6"/>
           <TextBlock Text="Número de hojas (si no defines medidas)"/><TextBox x:Name="DesiredPagesText" Text="1" Margin="0,5,0,10" Padding="6"/>
           <TextBlock Text="Ajuste de fotografía"/><ComboBox x:Name="AspectCombo" SelectedIndex="0" Margin="0,5,0,10" Padding="5"><ComboBoxItem Content="Conservar proporción original"/><ComboBoxItem Content="Ajustar exactamente a la medida"/></ComboBox>
+          <CheckBox x:Name="AllowRotationCheck" Content="Permitir rotación de 90° para optimizar espacio" IsChecked="True" Margin="0,0,0,12" ToolTip="Disponible cuando defines ancho y alto. La fotografía puede intercambiar ancho y alto."/>
           <TextBlock Text="Margen de hoja (cm)"/><TextBox x:Name="MarginText" Text="0.5" Margin="0,5,0,10" Padding="6"/>
           <TextBlock Text="Separación (cm)"/><TextBox x:Name="GapText" Text="0.3" Margin="0,5,0,16" Padding="6"/>
           <Button Content="Generar distribución" Padding="10" Background="#2563EB" Foreground="White" BorderThickness="0" Click="GenerateLayout_Click"/>
