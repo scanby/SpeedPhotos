@@ -294,6 +294,67 @@ namespace SpeedPhotos.App
             if (_pageCount > 0) RenderCurrentPage();
         }
 
+        private void Export_Click(object sender, RoutedEventArgs e)
+        {
+            if (_placements.Count == 0 || _pageCount == 0)
+            {
+                MessageBox.Show(this, "Primero importa fotografías y genera una distribución.",
+                    "Exportar composición", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                Title = "Exportar composición",
+                Filter = "Documento PDF (*.pdf)|*.pdf|Imágenes JPEG (*.jpg)|*.jpg",
+                FilterIndex = 1,
+                DefaultExt = ".pdf",
+                AddExtension = true,
+                FileName = "SpeedPhotos"
+            };
+            if (dialog.ShowDialog(this) != true) return;
+
+            try
+            {
+                var exportPlacements = _placements.Select(p => new ExportPhotoPlacement
+                {
+                    PhotoIndex = p.PhotoIndex,
+                    Page = p.Page,
+                    X = p.X,
+                    Y = p.Y,
+                    Width = p.Width,
+                    Height = p.Height,
+                    Rotated = p.Rotated
+                }).ToList();
+                var photoPaths = _photos.Select(p => p.FilePath).ToList();
+
+                if (dialog.FilterIndex == 1)
+                {
+                    ExportService.ExportPdf(dialog.FileName, _pageWidthCm, _pageHeightCm,
+                        _pageCount, exportPlacements, photoPaths,
+                        AspectCombo.SelectedIndex == 0, IsGrayscaleSelected());
+                    StatusText.Text = "Composición exportada a PDF: " + dialog.FileName;
+                    MessageBox.Show(this, "El PDF se creó correctamente con " + _pageCount +
+                        " hoja(s).", "Exportación completada", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    List<string> files = ExportService.ExportJpegPages(dialog.FileName,
+                        _pageWidthCm, _pageHeightCm, _pageCount, exportPlacements,
+                        photoPaths, AspectCombo.SelectedIndex == 0, IsGrayscaleSelected());
+                    StatusText.Text = files.Count + " imagen(es) JPG exportada(s).";
+                    MessageBox.Show(this, "Se exportaron " + files.Count +
+                        " imagen(es) JPG en la carpeta seleccionada.", "Exportación completada",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "No se pudo exportar la composición.\n\nDetalle: " + ex.Message,
+                    "Error de exportación", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void PrintNow_Click(object sender, RoutedEventArgs e)
         {
             if (_selectedPrinter == null) { MessageBox.Show("No hay una impresora seleccionada."); return; }
