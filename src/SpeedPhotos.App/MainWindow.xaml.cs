@@ -2,12 +2,10 @@ using Microsoft.Win32;
 using System;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace SpeedPhotos.App
 {
@@ -44,7 +42,7 @@ namespace SpeedPhotos.App
                     bitmap.CacheOption = BitmapCacheOption.OnLoad;
                     bitmap.EndInit();
                     bitmap.Freeze();
-                    _photos.Add(new PhotoItem { FileName = Path.GetFileName(file), FilePath = file, Thumbnail = bitmap });
+                    _photos.Add(new PhotoItem { FileName = System.IO.Path.GetFileName(file), FilePath = file, Thumbnail = bitmap });
                     added++;
                 }
                 catch { }
@@ -95,30 +93,29 @@ namespace SpeedPhotos.App
             int requested = CountCombo.SelectedIndex == 0 ? int.MaxValue : int.Parse(((ComboBoxItem)CountCombo.SelectedItem).Content.ToString());
             int columns = 1, rows = 1, capacity = 0;
             double bestWaste = double.MaxValue;
-            int max = Math.Min(_photos.Count, requested);
-            for (int c = 1; c <= max; c++)
-            {
-                int r = (int)Math.Ceiling((double)c / c);
-                double cellW = (usableWidth - gap * (c - 1)) / c;
-                double cellH = cellW * photoHeight / photoWidth;
-                if (cellH <= usableHeight)
-                {
-                    double waste = usableHeight - cellH;
-                    if (waste < bestWaste) { bestWaste = waste; columns = c; rows = 1; capacity = c; }
-                }
-            }
-
-            // Busca una cuadrícula que aproveche mejor la hoja respetando la proporción de la fotografía.
-            bestWaste = double.MaxValue;
             int upper = requested == int.MaxValue ? _photos.Count : Math.Min(_photos.Count, requested);
-            for (int c = 1; c <= upper; c++)
+
+            // Busca la mayor cantidad que cabe y, para esa cantidad, la cuadrícula con menor espacio sobrante.
+            for (int candidate = upper; candidate >= 1 && capacity == 0; candidate--)
             {
-                int r = (int)Math.Ceiling((double)upper / c);
-                double cellW = (usableWidth - gap * (c - 1)) / c;
-                double cellH = cellW * photoHeight / photoWidth;
-                if (cellH * r + gap * (r - 1) > usableHeight) continue;
-                double unused = (usableWidth * usableHeight) - (upper * cellW * cellH);
-                if (unused < bestWaste) { bestWaste = unused; columns = c; rows = r; capacity = upper; }
+                for (int c = 1; c <= candidate; c++)
+                {
+                    int r = (int)Math.Ceiling((double)candidate / c);
+                    double cellW = (usableWidth - gap * (c - 1)) / c;
+                    if (cellW <= 0) continue;
+                    double cellH = cellW * photoHeight / photoWidth;
+                    if (cellH * r + gap * (r - 1) > usableHeight) continue;
+
+                    double unused = (usableWidth * usableHeight) - (candidate * cellW * cellH);
+                    if (unused < bestWaste)
+                    {
+                        bestWaste = unused;
+                        columns = c;
+                        rows = r;
+                        capacity = candidate;
+                    }
+                }
+                if (capacity == 0) bestWaste = double.MaxValue;
             }
             if (capacity == 0)
             {
