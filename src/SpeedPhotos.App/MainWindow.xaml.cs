@@ -81,27 +81,50 @@ namespace SpeedPhotos.App
             bool keepAspect = AspectCombo.SelectedIndex == 0;
             if (hasWidth || hasHeight)
             {
-                // Si solo se especifica una dimensión, se calcula la otra individualmente usando la proporción de cada archivo.
-                // Para una cuadrícula estable se usa la proporción de la primera foto como referencia de celda; cada imagen conserva su proporción dentro de ella.
-                double ratio = (double)_photos[0].PixelWidth / Math.Max(1, _photos[0].PixelHeight);
-                double cellW = hasWidth ? width : height * ratio;
-                double cellH = hasHeight ? height : width / ratio;
-                if (cellW > usableW || cellH > usableH) { MessageBox.Show("La fotografía configurada no cabe en el papel con los márgenes actuales."); return; }
-                int cols = Math.Max(1, (int)Math.Floor((usableW + gap) / (cellW + gap)));
-                int rows = Math.Max(1, (int)Math.Floor((usableH + gap) / (cellH + gap)));
-                int perPage = cols * rows;
-                _pageCount = (int)Math.Ceiling((double)_photos.Count / perPage);
-                for (int i = 0; i < _photos.Count; i++)
+                // Con una sola dimensión definida, cada foto calcula su otra medida con SU propia proporción.
+                // Se empaquetan filas: ancho fijo llena columnas; alto fijo aprovecha el ancho disponible.
+                int photoIndex = 0;
+                int page = 0;
+                double y = margin;
+                while (photoIndex < _photos.Count)
                 {
-                    int page = i / perPage, local = i % perPage;
-                    int row = local / cols, col = local % cols;
-                    double gridW = cols * cellW + (cols - 1) * gap;
-                    double gridH = Math.Min(rows, (int)Math.Ceiling((double)Math.Min(perPage, _photos.Count - page * perPage) / cols)) * cellH
-                        + (Math.Min(rows, (int)Math.Ceiling((double)Math.Min(perPage, _photos.Count - page * perPage) / cols)) - 1) * gap;
-                    double x = margin + Math.Max(0, (usableW - gridW) / 2) + col * (cellW + gap);
-                    double y = margin + Math.Max(0, (usableH - gridH) / 2) + row * (cellH + gap);
-                    _placements.Add(new PhotoPlacement { PhotoIndex = i, Page = page, X = x, Y = y, Width = cellW, Height = cellH });
+                    double x = margin;
+                    double rowHeight = 0;
+                    bool placedInRow = false;
+                    while (photoIndex < _photos.Count)
+                    {
+                        PhotoItem photo = _photos[photoIndex];
+                        double ratio = (double)photo.PixelWidth / Math.Max(1, photo.PixelHeight);
+                        double cellW = hasWidth ? width : height * ratio;
+                        double cellH = hasHeight ? height : width / ratio;
+                        if (cellW > usableW || cellH > usableH)
+                        {
+                            MessageBox.Show("La fotografía " + photo.FileName + " no cabe en el papel con la medida indicada.");
+                            return;
+                        }
+                        if (x > margin && x + cellW > margin + usableW + 0.0001) break;
+                        if (y + Math.Max(rowHeight, cellH) > margin + usableH + 0.0001)
+                        {
+                            if (placedInRow) break;
+                            page++;
+                            y = margin;
+                            x = margin;
+                            rowHeight = 0;
+                        }
+                        _placements.Add(new PhotoPlacement { PhotoIndex = photoIndex, Page = page, X = x, Y = y, Width = cellW, Height = cellH });
+                        x += cellW + gap;
+                        rowHeight = Math.Max(rowHeight, cellH);
+                        placedInRow = true;
+                        photoIndex++;
+                    }
+                    if (placedInRow) y += rowHeight + gap;
+                    else
+                    {
+                        page++;
+                        y = margin;
+                    }
                 }
+                _pageCount = page + 1;
             }
             else
             {
