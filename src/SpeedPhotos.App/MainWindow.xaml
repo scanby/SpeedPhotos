@@ -17,7 +17,7 @@
           <StackPanel Width="145" Margin="0,0,12,8"><TextBlock Text="Modo de color"/><ComboBox x:Name="ColorModeCombo" Margin="0,4,0,0" Padding="5" SelectionChanged="ColorModeCombo_SelectionChanged"/></StackPanel>
         </WrapPanel>
         <WrapPanel VerticalAlignment="Center">
-          <CheckBox x:Name="DuplexCheck" Content="Impresión doble cara" VerticalAlignment="Center" Margin="0,0,12,8" IsEnabled="False"/>
+          <CheckBox x:Name="DuplexCheck" Content="Impresión doble cara" VerticalAlignment="Center" Margin="0,0,12,8" IsEnabled="False" Checked="DuplexCheck_Changed" Unchecked="DuplexCheck_Changed"/>
           <StackPanel Width="170" Margin="0,0,12,8"><TextBlock Text="Giro de hoja"/><ComboBox x:Name="DuplexCombo" Margin="0,4,0,0" Padding="5" IsEnabled="False"/></StackPanel>
           <Button Content="Imprimir composición" Padding="14,7" Margin="0,0,12,8" Background="#2563EB" Foreground="White" BorderThickness="0" Click="PrintNow_Click"/>
           <TextBlock x:Name="PrinterStatusText" Text="Selecciona una impresora para consultar sus opciones." Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,0,8" TextWrapping="Wrap"/>
