@@ -1,6 +1,7 @@
 using Microsoft.Win32;
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -12,17 +13,9 @@ namespace SpeedPhotos.App
     {
         private const double Dpi = 96.0;
         private readonly ObservableCollection<PhotoItem> _photos = new ObservableCollection<PhotoItem>();
-        private int _photosPerPage;
-        private int _pageCount;
-        private int _currentPage;
-        private double _pageWidthCm;
-        private double _pageHeightCm;
-        private double _photoWidthCm;
-        private double _photoHeightCm;
-        private double _marginCm;
-        private double _gapCm;
-        private int _columns;
-        private int _rows;
+        private readonly List<PhotoPlacement> _placements = new List<PhotoPlacement>();
+        private int _pageCount, _currentPage;
+        private double _pageWidthCm, _pageHeightCm;
 
         public MainWindow()
         {
@@ -33,12 +26,7 @@ namespace SpeedPhotos.App
 
         private void ImportPhotos_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new OpenFileDialog
-            {
-                Title = "Seleccionar fotografías",
-                Filter = "Archivos de imagen|*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff|Todos los archivos|*.*",
-                Multiselect = true
-            };
+            var dialog = new OpenFileDialog { Title = "Seleccionar fotografías", Filter = "Archivos de imagen|*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff|Todos los archivos|*.*", Multiselect = true };
             if (dialog.ShowDialog() != true) return;
             int added = 0;
             foreach (string file in dialog.FileNames)
@@ -46,29 +34,21 @@ namespace SpeedPhotos.App
                 try
                 {
                     var bitmap = new BitmapImage();
-                    bitmap.BeginInit();
-                    bitmap.UriSource = new Uri(file);
-                    bitmap.DecodePixelWidth = 180;
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmap.EndInit();
-                    bitmap.Freeze();
-                    _photos.Add(new PhotoItem { FileName = System.IO.Path.GetFileName(file), FilePath = file, Thumbnail = bitmap });
+                    bitmap.BeginInit(); bitmap.UriSource = new Uri(file); bitmap.DecodePixelWidth = 180;
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.EndInit(); bitmap.Freeze();
+                    _photos.Add(new PhotoItem { FileName = System.IO.Path.GetFileName(file), FilePath = file, Thumbnail = bitmap,
+                        PixelWidth = bitmap.PixelWidth, PixelHeight = bitmap.PixelHeight });
                     added++;
                 }
                 catch { }
             }
-            StatusText.Text = added + " fotografía(s) importada(s). Total: " + _photos.Count + ". Genera la distribución para actualizar las hojas.";
+            StatusText.Text = added + " fotografía(s) importada(s). Total: " + _photos.Count + ".";
         }
 
         private void ClearPhotos_Click(object sender, RoutedEventArgs e)
         {
-            _photos.Clear();
-            _photosPerPage = 0;
-            _pageCount = 0;
-            _currentPage = 0;
-            DrawEmptyPage();
-            UpdatePageNavigation();
-            StatusText.Text = "Selección de fotografías vaciada.";
+            _photos.Clear(); _placements.Clear(); _pageCount = 0; _currentPage = 0;
+            DrawEmptyPage(); UpdatePageNavigation(); StatusText.Text = "Selección de fotografías vaciada.";
         }
 
         private void Settings_Changed(object sender, SelectionChangedEventArgs e)
@@ -76,138 +56,111 @@ namespace SpeedPhotos.App
             if (IsLoaded && _photos.Count > 0) GenerateLayout_Click(this, new RoutedEventArgs());
         }
 
-        private void PreviousPage_Click(object sender, RoutedEventArgs e)
-        {
-            if (_currentPage <= 0) return;
-            _currentPage--;
-            RenderCurrentPage();
-        }
-
-        private void NextPage_Click(object sender, RoutedEventArgs e)
-        {
-            if (_currentPage >= _pageCount - 1) return;
-            _currentPage++;
-            RenderCurrentPage();
-        }
+        private void PreviousPage_Click(object sender, RoutedEventArgs e) { if (_currentPage > 0) { _currentPage--; RenderCurrentPage(); } }
+        private void NextPage_Click(object sender, RoutedEventArgs e) { if (_currentPage < _pageCount - 1) { _currentPage++; RenderCurrentPage(); } }
 
         private void GenerateLayout_Click(object sender, RoutedEventArgs e)
         {
-            if (_photos.Count == 0)
+            if (_photos.Count == 0) { StatusText.Text = "Primero importa fotografías."; return; }
+            double width, height, margin, gap;
+            bool hasWidth = !String.IsNullOrWhiteSpace(PhotoWidthText.Text);
+            bool hasHeight = !String.IsNullOrWhiteSpace(PhotoHeightText.Text);
+            if ((hasWidth && !ReadPositive(PhotoWidthText.Text, out width)) ||
+                (hasHeight && !ReadPositive(PhotoHeightText.Text, out height)) ||
+                !ReadNonNegative(MarginText.Text, out margin) || !ReadNonNegative(GapText.Text, out gap))
+            { MessageBox.Show("Revisa las medidas, márgenes y separación. Las dimensiones pueden quedar vacías, pero no contener valores inválidos.", "Configuración no válida"); return; }
+            if (!hasWidth) width = 0;
+            if (!hasHeight) height = 0;
+
+            GetPaperSize(out _pageWidthCm, out _pageHeightCm);
+            if (OrientationCombo.SelectedIndex == 1) { double temp = _pageWidthCm; _pageWidthCm = _pageHeightCm; _pageHeightCm = temp; }
+            double usableW = _pageWidthCm - 2 * margin, usableH = _pageHeightCm - 2 * margin;
+            if (usableW <= 0 || usableH <= 0) { MessageBox.Show("El margen es demasiado grande."); return; }
+
+            _placements.Clear();
+            bool keepAspect = AspectCombo.SelectedIndex == 0;
+            if (hasWidth || hasHeight)
             {
-                StatusText.Text = "Primero importa al menos una fotografía.";
-                return;
+                // Si solo se especifica una dimensión, se calcula la otra individualmente usando la proporción de cada archivo.
+                // Para una cuadrícula estable se usa la proporción de la primera foto como referencia de celda; cada imagen conserva su proporción dentro de ella.
+                double ratio = (double)_photos[0].PixelWidth / Math.Max(1, _photos[0].PixelHeight);
+                double cellW = hasWidth ? width : height * ratio;
+                double cellH = hasHeight ? height : width / ratio;
+                if (cellW > usableW || cellH > usableH) { MessageBox.Show("La fotografía configurada no cabe en el papel con los márgenes actuales."); return; }
+                int cols = Math.Max(1, (int)Math.Floor((usableW + gap) / (cellW + gap)));
+                int rows = Math.Max(1, (int)Math.Floor((usableH + gap) / (cellH + gap)));
+                int perPage = cols * rows;
+                _pageCount = (int)Math.Ceiling((double)_photos.Count / perPage);
+                for (int i = 0; i < _photos.Count; i++)
+                {
+                    int page = i / perPage, local = i % perPage;
+                    int row = local / cols, col = local % cols;
+                    double gridW = cols * cellW + (cols - 1) * gap;
+                    double gridH = Math.Min(rows, (int)Math.Ceiling((double)Math.Min(perPage, _photos.Count - page * perPage) / cols)) * cellH
+                        + (Math.Min(rows, (int)Math.Ceiling((double)Math.Min(perPage, _photos.Count - page * perPage) / cols)) - 1) * gap;
+                    double x = margin + Math.Max(0, (usableW - gridW) / 2) + col * (cellW + gap);
+                    double y = margin + Math.Max(0, (usableH - gridH) / 2) + row * (cellH + gap);
+                    _placements.Add(new PhotoPlacement { PhotoIndex = i, Page = page, X = x, Y = y, Width = cellW, Height = cellH });
+                }
+            }
+            else
+            {
+                int desiredPages;
+                if (!Int32.TryParse(DesiredPagesText.Text, out desiredPages) || desiredPages < 1 || desiredPages > _photos.Count)
+                { MessageBox.Show("Indica un número de hojas entre 1 y " + _photos.Count + "."); return; }
+                _pageCount = desiredPages;
+                int baseCount = _photos.Count / desiredPages, extra = _photos.Count % desiredPages;
+                int maxPerPage = baseCount + (extra > 0 ? 1 : 0);
+                int bestCols = 1, bestRows = maxPerPage;
+                double bestScore = -1;
+                for (int cols = 1; cols <= maxPerPage; cols++)
+                {
+                    int rows = (int)Math.Ceiling((double)maxPerPage / cols);
+                    double cellW = (usableW - gap * (cols - 1)) / cols;
+                    double cellH = (usableH - gap * (rows - 1)) / rows;
+                    if (cellW <= 0 || cellH <= 0) continue;
+                    double score = cellW * cellH;
+                    if (score > bestScore) { bestScore = score; bestCols = cols; bestRows = rows; }
+                }
+                double slotW = (usableW - gap * (bestCols - 1)) / bestCols;
+                double slotH = (usableH - gap * (bestRows - 1)) / bestRows;
+                int photoIndex = 0;
+                for (int page = 0; page < desiredPages; page++)
+                {
+                    int count = baseCount + (page < extra ? 1 : 0);
+                    for (int local = 0; local < count; local++)
+                    {
+                        int row = local / bestCols, col = local % bestCols;
+                        _placements.Add(new PhotoPlacement { PhotoIndex = photoIndex++, Page = page,
+                            X = margin + col * (slotW + gap), Y = margin + row * (slotH + gap), Width = slotW, Height = slotH });
+                    }
+                }
             }
 
-            double photoWidth, photoHeight, margin, gap;
-            if (!ReadPositive(PhotoWidthText.Text, out photoWidth) ||
-                !ReadPositive(PhotoHeightText.Text, out photoHeight) ||
-                !ReadNonNegative(MarginText.Text, out margin) ||
-                !ReadNonNegative(GapText.Text, out gap))
-            {
-                MessageBox.Show("Verifica las dimensiones, el margen y la separación. Usa números válidos en centímetros.", "Configuración no válida", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            double pageWidth, pageHeight;
-            GetPaperSize(out pageWidth, out pageHeight);
-            double usableWidth = pageWidth - margin * 2;
-            double usableHeight = pageHeight - margin * 2;
-            if (usableWidth <= 0 || usableHeight <= 0 || photoWidth > usableWidth || photoHeight > usableHeight)
-            {
-                MessageBox.Show("Las fotografías o los márgenes son mayores que el área imprimible de la hoja.", "No caben en la hoja", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            // Cada fotografía conserva exactamente el ancho y alto configurados.
-            int maxColumns = (int)Math.Floor((usableWidth + gap) / (photoWidth + gap));
-            int maxRows = (int)Math.Floor((usableHeight + gap) / (photoHeight + gap));
-            if (maxColumns < 1 || maxRows < 1)
-            {
-                MessageBox.Show("No cabe ninguna fotografía con esas dimensiones, márgenes y separación.", "No caben en la hoja", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            int physicalCapacity = maxColumns * maxRows;
-            int requested = CountCombo.SelectedIndex == 0
-                ? physicalCapacity
-                : int.Parse(((ComboBoxItem)CountCombo.SelectedItem).Content.ToString());
-            _photosPerPage = Math.Min(physicalCapacity, requested);
-            if (_photosPerPage < 1) _photosPerPage = 1;
-
-            _columns = Math.Min(maxColumns, _photosPerPage);
-            _rows = (int)Math.Ceiling((double)_photosPerPage / _columns);
-            _pageWidthCm = pageWidth;
-            _pageHeightCm = pageHeight;
-            _photoWidthCm = photoWidth;
-            _photoHeightCm = photoHeight;
-            _marginCm = margin;
-            _gapCm = gap;
-
-            _pageCount = (int)Math.Ceiling((double)_photos.Count / _photosPerPage);
             _currentPage = 0;
             RenderCurrentPage();
-
-            int lastPagePhotos = _photos.Count % _photosPerPage;
-            if (lastPagePhotos == 0) lastPagePhotos = _photosPerPage;
-            StatusText.Text = _photos.Count + " fotografía(s) distribuidas en " + _pageCount +
-                " hoja(s). " + _photosPerPage + " por hoja; tamaño fijo " +
-                photoWidth.ToString("0.##") + " × " + photoHeight.ToString("0.##") + " cm.";
+            StatusText.Text = _photos.Count + " fotografías distribuidas en " + _pageCount + " hoja(s). " +
+                (hasWidth || hasHeight ? "Medida de referencia: " + (hasWidth ? width.ToString("0.##") + " cm de ancho" : height.ToString("0.##") + " cm de alto") + "." : "Reparto optimizado entre las hojas solicitadas.") +
+                (keepAspect ? " Proporción original conservada." : " Ajuste exacto seleccionado.");
         }
 
         private void RenderCurrentPage()
         {
-            double pageW = _pageWidthCm * Dpi / 2.54;
-            double pageH = _pageHeightCm * Dpi / 2.54;
-            PreviewCanvas.Width = pageW;
-            PreviewCanvas.Height = pageH;
-            PreviewCanvas.Children.Clear();
-            PreviewCanvas.Background = Brushes.White;
-
-            double photoW = _photoWidthCm * Dpi / 2.54;
-            double photoH = _photoHeightCm * Dpi / 2.54;
-            double margin = _marginCm * Dpi / 2.54;
-            double gap = _gapCm * Dpi / 2.54;
-            int startIndex = _currentPage * _photosPerPage;
-            int countOnPage = Math.Min(_photosPerPage, _photos.Count - startIndex);
-            int actualRows = (int)Math.Ceiling((double)countOnPage / _columns);
-            double gridWidth = _columns * photoW + (_columns - 1) * gap;
-            double gridHeight = actualRows * photoH + (actualRows - 1) * gap;
-            double availableW = pageW - margin * 2;
-            double availableH = pageH - margin * 2;
-            double startX = margin + Math.Max(0, (availableW - gridWidth) / 2.0);
-            double startY = margin + Math.Max(0, (availableH - gridHeight) / 2.0);
-
-            for (int i = 0; i < countOnPage; i++)
+            double pageW = _pageWidthCm * Dpi / 2.54, pageH = _pageHeightCm * Dpi / 2.54;
+            PreviewCanvas.Width = pageW; PreviewCanvas.Height = pageH; PreviewCanvas.Children.Clear(); PreviewCanvas.Background = Brushes.White;
+            double scale = Dpi / 2.54;
+            foreach (PhotoPlacement p in _placements)
             {
-                int row = i / _columns;
-                int col = i % _columns;
-                int photoIndex = startIndex + i;
-                double x = startX + col * (photoW + gap);
-                double y = startY + row * (photoH + gap);
-
-                var frame = new Border
-                {
-                    Width = photoW,
-                    Height = photoH,
-                    BorderBrush = new SolidColorBrush(Color.FromRgb(180, 190, 205)),
-                    BorderThickness = new Thickness(0.5),
-                    ClipToBounds = true,
-                    Background = Brushes.White
-                };
-                var image = new Image { Stretch = Stretch.UniformToFill };
+                if (p.Page != _currentPage) continue;
+                var frame = new Border { Width = p.Width * scale, Height = p.Height * scale,
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(180, 190, 205)), BorderThickness = new Thickness(0.5),
+                    ClipToBounds = true, Background = Brushes.White };
+                var image = new Image { Stretch = AspectCombo.SelectedIndex == 0 ? Stretch.Uniform : Stretch.Fill };
                 var source = new BitmapImage();
-                source.BeginInit();
-                source.UriSource = new Uri(_photos[photoIndex].FilePath);
-                source.CacheOption = BitmapCacheOption.OnLoad;
-                source.EndInit();
-                source.Freeze();
-                image.Source = source;
-                frame.Child = image;
-                Canvas.SetLeft(frame, x);
-                Canvas.SetTop(frame, y);
-                PreviewCanvas.Children.Add(frame);
+                source.BeginInit(); source.UriSource = new Uri(_photos[p.PhotoIndex].FilePath); source.CacheOption = BitmapCacheOption.OnLoad; source.EndInit(); source.Freeze();
+                image.Source = source; frame.Child = image;
+                Canvas.SetLeft(frame, p.X * scale); Canvas.SetTop(frame, p.Y * scale); PreviewCanvas.Children.Add(frame);
             }
-
             UpdatePageNavigation();
         }
 
@@ -229,26 +182,15 @@ namespace SpeedPhotos.App
         }
 
         private static bool ReadPositive(string text, out double value)
-        {
-            return double.TryParse(text.Replace(',', '.'), System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out value) && value > 0;
-        }
-
+        { return double.TryParse(text.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out value) && value > 0; }
         private static bool ReadNonNegative(string text, out double value)
-        {
-            return double.TryParse(text.Replace(',', '.'), System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out value) && value >= 0;
-        }
+        { return double.TryParse(text.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out value) && value >= 0; }
 
         private void DrawEmptyPage()
         {
-            PreviewCanvas.Width = 816;
-            PreviewCanvas.Height = 1056;
-            PreviewCanvas.Children.Clear();
+            PreviewCanvas.Width = 816; PreviewCanvas.Height = 1056; PreviewCanvas.Children.Clear();
             var hint = new TextBlock { Text = "Importa fotografías y genera una distribución", Foreground = Brushes.Gray, FontSize = 22 };
-            PreviewCanvas.Children.Add(hint);
-            Canvas.SetLeft(hint, 130);
-            Canvas.SetTop(hint, 500);
+            PreviewCanvas.Children.Add(hint); Canvas.SetLeft(hint, 130); Canvas.SetTop(hint, 500);
         }
     }
 
@@ -257,5 +199,17 @@ namespace SpeedPhotos.App
         public string FileName { get; set; }
         public string FilePath { get; set; }
         public BitmapImage Thumbnail { get; set; }
+        public int PixelWidth { get; set; }
+        public int PixelHeight { get; set; }
+    }
+
+    internal class PhotoPlacement
+    {
+        public int PhotoIndex { get; set; }
+        public int Page { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
     }
 }
