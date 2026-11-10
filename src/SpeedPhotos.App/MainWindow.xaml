@@ -4,7 +4,7 @@
       <TextBlock Text="SpeedPhotos" Foreground="White" FontSize="23" FontWeight="Bold" VerticalAlignment="Center"/>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
         <Button Content="＋ Importar fotografías" Padding="14,8" Margin="8,0,0,0" Click="ImportPhotos_Click"/>
-        <Button Content="🖨 Impresora" Padding="14,8" Margin="8,0,0,0" Click="TogglePrintSettings_Click"/><Button Content="Limpiar selección" Padding="14,8" Margin="8,0,0,0" Click="ClearPhotos_Click"/>
+        <Button Content="🖨 Impresora" Padding="14,8" Margin="8,0,0,0" Click="TogglePrintSettings_Click"/><Button x:Name="CheckUpdatesButton" Content="↻ Buscar actualizaciones" Padding="14,8" Margin="8,0,0,0" Click="CheckUpdates_Click"/><Button Content="Limpiar selección" Padding="14,8" Margin="8,0,0,0" Click="ClearPhotos_Click"/>
       </StackPanel>
     </DockPanel></Border>
     <Border x:Name="PrintSettingsPanel" DockPanel.Dock="Top" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="0,0,0,1" Padding="14" Visibility="Collapsed">
