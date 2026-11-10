@@ -2,6 +2,7 @@ using Microsoft.Win32;
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -33,6 +34,11 @@ namespace SpeedPhotos.App
             PhotosList.ItemsSource = _photos;
             DrawEmptyPage();
             LoadPrinters();
+
+            // Permite abrir una o varias imágenes desde el menú contextual del Explorador.
+            string[] startupFiles = Environment.GetCommandLineArgs();
+            if (startupFiles.Length > 1)
+                AddPhotoFiles(startupFiles.Skip(1));
         }
 
         private void ImportPhotos_Click(object sender, RoutedEventArgs e)
