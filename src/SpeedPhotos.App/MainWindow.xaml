@@ -4,7 +4,7 @@
       <TextBlock Text="SpeedPhotos" Foreground="White" FontSize="23" FontWeight="Bold" VerticalAlignment="Center"/>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
         <Button Content="＋ Importar fotografías" Padding="14,8" Margin="8,0,0,0" Click="ImportPhotos_Click"/>
-        <Button Content="🖨 Impresora" Padding="14,8" Margin="8,0,0,0" Click="TogglePrintSettings_Click"/><Button x:Name="CheckUpdatesButton" Content="↻ Buscar actualizaciones" Padding="14,8" Margin="8,0,0,0" Click="CheckUpdates_Click"/><Button Content="Limpiar selección" Padding="14,8" Margin="8,0,0,0" Click="ClearPhotos_Click"/>
+        <Button Content="🖨 Impresora" Padding="14,8" Margin="8,0,0,0" Click="TogglePrintSettings_Click"/><Button Content="⇩ Exportar" Padding="14,8" Margin="8,0,0,0" Click="Export_Click"/><Button x:Name="CheckUpdatesButton" Content="↻ Buscar actualizaciones" Padding="14,8" Margin="8,0,0,0" Click="CheckUpdates_Click"/><Button Content="Limpiar selección" Padding="14,8" Margin="8,0,0,0" Click="ClearPhotos_Click"/>
       </StackPanel>
     </DockPanel></Border>
     <Border x:Name="PrintSettingsPanel" DockPanel.Dock="Top" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="0,0,0,1" Padding="14" Visibility="Collapsed">
@@ -56,8 +56,8 @@
           <TextBlock Text="CONFIGURACIÓN DE HOJA" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,16"/>
           <TextBlock Text="Tamaño de papel"/><ComboBox x:Name="PaperCombo" SelectedIndex="0" Margin="0,5,0,10" Padding="5" SelectionChanged="Settings_Changed"><ComboBoxItem Content="Carta"/><ComboBoxItem Content="A4"/><ComboBoxItem Content="Oficio"/></ComboBox>
           <TextBlock Text="Orientación del papel"/><ComboBox x:Name="OrientationCombo" SelectedIndex="0" Margin="0,5,0,10" Padding="5" SelectionChanged="Settings_Changed"><ComboBoxItem Content="Vertical"/><ComboBoxItem Content="Horizontal"/></ComboBox>
-          <TextBlock Text="Ancho de fotografía (cm)"/><TextBox x:Name="PhotoWidthText" Text="10" Margin="0,5,0,10" Padding="6"/>
-          <TextBlock Text="Alto de fotografía (cm)"/><TextBox x:Name="PhotoHeightText" Text="15" Margin="0,5,0,10" Padding="6"/>
+          <TextBlock Text="Ancho de fotografía (cm)"/><TextBox x:Name="PhotoWidthText" Margin="0,5,0,10" Padding="6" ToolTip="Déjalo vacío para calcular automáticamente el ancho."/>
+          <TextBlock Text="Alto de fotografía (cm)"/><TextBox x:Name="PhotoHeightText" Margin="0,5,0,10" Padding="6" ToolTip="Déjalo vacío para calcular automáticamente el alto."/>
           <TextBlock Text="Número de hojas (si no defines medidas)"/><TextBox x:Name="DesiredPagesText" Text="1" Margin="0,5,0,10" Padding="6"/>
           <TextBlock Text="Ajuste de fotografía"/><ComboBox x:Name="AspectCombo" SelectedIndex="0" Margin="0,5,0,10" Padding="5"><ComboBoxItem Content="Conservar proporción original"/><ComboBoxItem Content="Ajustar exactamente a la medida"/></ComboBox>
           <CheckBox x:Name="AllowRotationCheck" Content="Permitir rotación de 90° para optimizar espacio" IsChecked="True" Margin="0,0,0,12" ToolTip="Disponible cuando defines ancho y alto. La fotografía puede intercambiar ancho y alto."/>
