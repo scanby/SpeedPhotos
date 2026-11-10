@@ -181,7 +181,7 @@ namespace SpeedPhotos.App
                      _printerCapabilities.DuplexingCapability.Contains(Duplexing.TwoSidedShortEdge));
                 DuplexCheck.IsEnabled = supportsDuplex;
                 DuplexCheck.IsChecked = false;
-                DuplexCombo.IsEnabled = supportsDuplex;
+                DuplexCombo.IsEnabled = false;
                 if (!supportsDuplex) DuplexCombo.Items.Clear();
                 PrinterStatusText.Text = supportsDuplex
                     ? "Opciones obtenidas del controlador de " + _selectedPrinter.Name + "."
@@ -221,7 +221,13 @@ namespace SpeedPhotos.App
         private bool IsGrayscaleSelected()
         {
             var item = ColorModeCombo == null ? null : ColorModeCombo.SelectedItem as ComboBoxItem;
-            return item != null && item.Tag is OutputColor && (OutputColor)item.Tag == OutputColor.Grayscale;
+            return item != null && item.Tag is OutputColor &&
+                ((OutputColor)item.Tag == OutputColor.Grayscale || (OutputColor)item.Tag == OutputColor.Monochrome);
+        }
+
+        private void DuplexCheck_Changed(object sender, RoutedEventArgs e)
+        {
+            DuplexCombo.IsEnabled = DuplexCheck.IsEnabled && DuplexCheck.IsChecked == true;
         }
 
         private void ColorModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
