@@ -329,7 +329,7 @@ namespace SpeedPhotos.App
                 PrintTicket defaultTicket = _selectedPrinter.DefaultPrintTicket ?? new PrintTicket();
                 SetDefaultCapability(PaperSizeCombo, defaultTicket.PageMediaSize);
                 SetDefaultCapability(PaperTypeCombo, defaultTicket.PageMediaType);
-                SetDefaultPrintQuality(defaultTicket);
+                SetDefaultCapability(PrintQualityCombo, defaultTicket.PageResolution);
                 SetDefaultCapability(DuplexCombo, defaultTicket.Duplexing);
                 SetDefaultCapability(ColorModeCombo, defaultTicket.OutputColor);
                 if (PaperSizeCombo.SelectedIndex < 0 && PaperSizeCombo.Items.Count > 0) PaperSizeCombo.SelectedIndex = 0;
@@ -368,55 +368,77 @@ namespace SpeedPhotos.App
             }
         }
 
-        // Algunos controladores publican resoluciones (DPI); otros solo niveles
-        // de salida como Borrador, Normal o Alta. Consultamos ambas capacidades.
+        // Primero consulta la capacidad WPF del controlador. Si viene vacía,
+        // utiliza la lista GDI de resoluciones que Windows expone para esa impresora.
         private void AddPrintQualityOptions(PrintCapabilities capabilities)
         {
             PrintQualityCombo.Items.Clear();
-            if (capabilities == null) return;
-
-            IList<PageResolution> resolutions = capabilities.PageResolutionCapability;
-            if (resolutions != null && resolutions.Count > 0)
+            if (capabilities != null)
             {
-                foreach (PageResolution resolution in resolutions)
+                IList<PageResolution> resolutions = capabilities.PageResolutionCapability;
+                if (resolutions != null && resolutions.Count > 0)
                 {
-                    if (resolution == null) continue;
-                    string label = resolution.X.HasValue && resolution.Y.HasValue
-                        ? resolution.X.Value + " × " + resolution.Y.Value + " ppp"
-                        : resolution.ToString();
-                    PrintQualityCombo.Items.Add(new ComboBoxItem { Content = label, Tag = resolution });
+                    foreach (PageResolution resolution in resolutions)
+                    {
+                        if (resolution == null) continue;
+                        string label = resolution.X.HasValue && resolution.Y.HasValue
+                            ? resolution.X.Value + " × " + resolution.Y.Value + " ppp"
+                            : resolution.ToString();
+                        PrintQualityCombo.Items.Add(new ComboBoxItem { Content = label, Tag = resolution });
+                    }
+                    if (PrintQualityCombo.Items.Count > 0) return;
                 }
-                return;
             }
 
-            IList<OutputQuality> qualities = capabilities.PageOutputQualityCapability;
-            if (qualities == null) return;
-            foreach (OutputQuality quality in qualities)
-                PrintQualityCombo.Items.Add(new ComboBoxItem { Content = FormatOutputQuality(quality), Tag = quality });
-        }
-
-        private static string FormatOutputQuality(OutputQuality quality)
-        {
-            switch (quality)
+            try
             {
-                case OutputQuality.Draft: return "Borrador";
-                case OutputQuality.Normal: return "Normal";
-                case OutputQuality.High: return "Alta";
-                case OutputQuality.Photographic: return "Fotográfica";
-                case OutputQuality.Text: return "Texto";
-                case OutputQuality.Automatic: return "Automática";
-                default: return quality.ToString();
-            }
-        }
+                var settings = new System.Drawing.Printing.PrinterSettings
+                {
+                    PrinterName = _selectedPrinter.Name
+                };
+                if (!settings.IsValid)
+                    settings.PrinterName = _selectedPrinter.FullName;
 
-        private void SetDefaultPrintQuality(PrintTicket ticket)
-        {
-            if (ticket == null) return;
-            object selectedValue = (object)ticket.PageResolution;
-            if (selectedValue == null && PrintQualityCombo.Items.Cast<ComboBoxItem>()
-                .Any(item => item.Tag is OutputQuality))
-                selectedValue = ticket.PageOutputQuality;
-            SetDefaultCapability(PrintQualityCombo, selectedValue);
+                foreach (System.Drawing.Printing.PrinterResolution resolution in settings.PrinterResolutions)
+                {
+                    PageResolution ticketResolution = null;
+                    string label = null;
+
+                    switch (resolution.Kind)
+                    {
+                        case System.Drawing.Printing.PrinterResolutionKind.High:
+                            label = "Alta";
+                            ticketResolution = new PageResolution(PageQualitativeResolution.High);
+                            break;
+                        case System.Drawing.Printing.PrinterResolutionKind.Medium:
+                            label = "Media / Normal";
+                            ticketResolution = new PageResolution(PageQualitativeResolution.Normal);
+                            break;
+                        case System.Drawing.Printing.PrinterResolutionKind.Low:
+                            label = "Baja";
+                            ticketResolution = new PageResolution(PageQualitativeResolution.Draft);
+                            break;
+                        case System.Drawing.Printing.PrinterResolutionKind.Draft:
+                            label = "Borrador";
+                            ticketResolution = new PageResolution(PageQualitativeResolution.Draft);
+                            break;
+                        case System.Drawing.Printing.PrinterResolutionKind.Custom:
+                            if (resolution.X > 0 && resolution.Y > 0)
+                            {
+                                label = resolution.X + " × " + resolution.Y + " ppp";
+                                ticketResolution = new PageResolution(resolution.X, resolution.Y);
+                            }
+                            break;
+                    }
+
+                    if (ticketResolution != null)
+                        PrintQualityCombo.Items.Add(new ComboBoxItem { Content = label, Tag = ticketResolution });
+                }
+            }
+            catch
+            {
+                // Algunos controladores no publican resoluciones mediante GDI.
+            }
         }
 
         private void AddPaperSizeOptions(IList<PageMediaSize> sizes)
@@ -599,12 +621,10 @@ namespace SpeedPhotos.App
                 var size = SelectedCapability<PageMediaSize>(PaperSizeCombo);
                 var type = SelectedEnumCapability<PageMediaType>(PaperTypeCombo);
                 var resolution = SelectedCapability<PageResolution>(PrintQualityCombo);
-                var outputQuality = SelectedEnumCapability<OutputQuality>(PrintQualityCombo);
                 if (size != null) ticket.PageMediaSize = size;
                 ticket.PageOrientation = OrientationCombo.SelectedIndex == 1 ? PageOrientation.Landscape : PageOrientation.Portrait;
                 if (type.HasValue) ticket.PageMediaType = type.Value;
                 if (resolution != null) ticket.PageResolution = resolution;
-                else if (outputQuality.HasValue) ticket.PageOutputQuality = outputQuality.Value;
                 var color = SelectedEnumCapability<OutputColor>(ColorModeCombo);
                 if (color.HasValue) ticket.OutputColor = color.Value;
                 if (DuplexCheck.IsChecked == true)
