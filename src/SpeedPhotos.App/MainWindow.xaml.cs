@@ -322,19 +322,20 @@ namespace SpeedPhotos.App
                 _printerCapabilities = _selectedPrinter.GetPrintCapabilities();
                 AddPaperSizeOptions(_printerCapabilities.PageMediaSizeCapability);
                 AddCapabilityOptions(PaperTypeCombo, _printerCapabilities.PageMediaTypeCapability);
-                AddCapabilityOptions(PrintQualityCombo, _printerCapabilities.PageResolutionCapability);
+                AddPrintQualityOptions(_printerCapabilities);
                 AddDuplexOptions(_printerCapabilities.DuplexingCapability);
                 AddCapabilityOptions(ColorModeCombo, _printerCapabilities.OutputColorCapability);
                 PaperCombo.IsEnabled = PaperSizeCombo.Items.Count == 0;
                 PrintTicket defaultTicket = _selectedPrinter.DefaultPrintTicket ?? new PrintTicket();
                 SetDefaultCapability(PaperSizeCombo, defaultTicket.PageMediaSize);
                 SetDefaultCapability(PaperTypeCombo, defaultTicket.PageMediaType);
-                SetDefaultCapability(PrintQualityCombo, defaultTicket.PageResolution);
+                SetDefaultPrintQuality(defaultTicket);
                 SetDefaultCapability(DuplexCombo, defaultTicket.Duplexing);
                 SetDefaultCapability(ColorModeCombo, defaultTicket.OutputColor);
                 if (PaperSizeCombo.SelectedIndex < 0 && PaperSizeCombo.Items.Count > 0) PaperSizeCombo.SelectedIndex = 0;
                 if (PaperTypeCombo.SelectedIndex < 0 && PaperTypeCombo.Items.Count > 0) PaperTypeCombo.SelectedIndex = 0;
                 if (PrintQualityCombo.SelectedIndex < 0 && PrintQualityCombo.Items.Count > 0) PrintQualityCombo.SelectedIndex = 0;
+                PrintQualityCombo.IsEnabled = PrintQualityCombo.Items.Count > 0;
                 if (ColorModeCombo.SelectedIndex < 0 && ColorModeCombo.Items.Count > 0) ColorModeCombo.SelectedIndex = 0;
                 bool supportsDuplex = _printerCapabilities.DuplexingCapability != null &&
                     (_printerCapabilities.DuplexingCapability.Contains(Duplexing.TwoSidedLongEdge) ||
@@ -343,9 +344,12 @@ namespace SpeedPhotos.App
                 DuplexCheck.IsChecked = false;
                 DuplexCombo.IsEnabled = false;
                 if (!supportsDuplex) DuplexCombo.Items.Clear();
-                PrinterStatusText.Text = supportsDuplex
-                    ? "Opciones obtenidas del controlador de " + _selectedPrinter.Name + "."
-                    : "Esta impresora no informa compatibilidad con impresión a doble cara.";
+                string status = "Opciones obtenidas del controlador de " + _selectedPrinter.Name + ".";
+                if (!supportsDuplex)
+                    status += " No informa compatibilidad con impresión a doble cara.";
+                if (PrintQualityCombo.Items.Count == 0)
+                    status += " El controlador no publica niveles ni resoluciones de calidad.";
+                PrinterStatusText.Text = status;
                 UpdatePreviewColorMode();
             }
             catch (Exception ex)
@@ -362,6 +366,58 @@ namespace SpeedPhotos.App
             {
                 combo.Items.Add(new ComboBoxItem { Content = value.ToString(), Tag = value });
             }
+        }
+
+        // Algunos controladores publican resoluciones (DPI); otros solo niveles
+        // de salida como Borrador, Normal o Alta. Consultamos ambas capacidades.
+        private void AddPrintQualityOptions(PrintCapabilities capabilities)
+        {
+            PrintQualityCombo.Items.Clear();
+            if (capabilities == null) return;
+
+            IList<PageResolution> resolutions = capabilities.PageResolutionCapability;
+            if (resolutions != null && resolutions.Count > 0)
+            {
+                foreach (PageResolution resolution in resolutions)
+                {
+                    if (resolution == null) continue;
+                    string label = resolution.X.HasValue && resolution.Y.HasValue
+                        ? resolution.X.Value + " × " + resolution.Y.Value + " ppp"
+                        : resolution.ToString();
+                    PrintQualityCombo.Items.Add(new ComboBoxItem { Content = label, Tag = resolution });
+                }
+                return;
+            }
+
+            IList<OutputQuality> qualities = capabilities.PageOutputQualityCapability;
+            if (qualities == null) return;
+            foreach (OutputQuality quality in qualities)
+                PrintQualityCombo.Items.Add(new ComboBoxItem { Content = FormatOutputQuality(quality), Tag = quality });
+        }
+
+        private static string FormatOutputQuality(OutputQuality quality)
+        {
+            switch (quality)
+            {
+                case OutputQuality.Draft: return "Borrador";
+                case OutputQuality.Low: return "Baja";
+                case OutputQuality.Normal: return "Normal";
+                case OutputQuality.High: return "Alta";
+                case OutputQuality.Photo: return "Fotográfica";
+                case OutputQuality.Text: return "Texto";
+                case OutputQuality.Automatic: return "Automática";
+                default: return quality.ToString();
+            }
+        }
+
+        private void SetDefaultPrintQuality(PrintTicket ticket)
+        {
+            if (ticket == null) return;
+            object selectedValue = (object)ticket.PageResolution;
+            if (selectedValue == null && PrintQualityCombo.Items.Cast<ComboBoxItem>()
+                .Any(item => item.Tag is OutputQuality))
+                selectedValue = ticket.PageOutputQuality;
+            SetDefaultCapability(PrintQualityCombo, selectedValue);
         }
 
         private void AddPaperSizeOptions(IList<PageMediaSize> sizes)
@@ -445,6 +501,7 @@ namespace SpeedPhotos.App
         private void ClearPrinterOptions()
         {
             PaperSizeCombo.Items.Clear(); PaperTypeCombo.Items.Clear(); PrintQualityCombo.Items.Clear();
+            PrintQualityCombo.IsEnabled = false;
             DuplexCombo.Items.Clear(); ColorModeCombo.Items.Clear();
             PaperCombo.IsEnabled = true;
             DuplexCheck.IsChecked = false; DuplexCheck.IsEnabled = false; DuplexCombo.IsEnabled = false;
@@ -543,10 +600,12 @@ namespace SpeedPhotos.App
                 var size = SelectedCapability<PageMediaSize>(PaperSizeCombo);
                 var type = SelectedEnumCapability<PageMediaType>(PaperTypeCombo);
                 var resolution = SelectedCapability<PageResolution>(PrintQualityCombo);
+                var outputQuality = SelectedEnumCapability<OutputQuality>(PrintQualityCombo);
                 if (size != null) ticket.PageMediaSize = size;
                 ticket.PageOrientation = OrientationCombo.SelectedIndex == 1 ? PageOrientation.Landscape : PageOrientation.Portrait;
                 if (type.HasValue) ticket.PageMediaType = type.Value;
                 if (resolution != null) ticket.PageResolution = resolution;
+                else if (outputQuality.HasValue) ticket.PageOutputQuality = outputQuality.Value;
                 var color = SelectedEnumCapability<OutputColor>(ColorModeCombo);
                 if (color.HasValue) ticket.OutputColor = color.Value;
                 if (DuplexCheck.IsChecked == true)
