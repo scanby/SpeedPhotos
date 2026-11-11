@@ -400,10 +400,9 @@ namespace SpeedPhotos.App
             switch (quality)
             {
                 case OutputQuality.Draft: return "Borrador";
-                case OutputQuality.Low: return "Baja";
                 case OutputQuality.Normal: return "Normal";
                 case OutputQuality.High: return "Alta";
-                case OutputQuality.Photo: return "Fotográfica";
+                case OutputQuality.Photographic: return "Fotográfica";
                 case OutputQuality.Text: return "Texto";
                 case OutputQuality.Automatic: return "Automática";
                 default: return quality.ToString();
