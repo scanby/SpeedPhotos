@@ -257,7 +257,7 @@ namespace SpeedPhotos.App
                         if (String.IsNullOrWhiteSpace(installedName)) continue;
                         bool exists = queues.Keys.Any(k =>
                             String.Equals(k, installedName, StringComparison.OrdinalIgnoreCase) ||
-                            String.Equals(k, installedName, StringComparison.OrdinalIgnoreCase));
+                            String.Equals(k, installedName.TrimStart('\\'), StringComparison.OrdinalIgnoreCase));
                         if (exists) continue;
 
                         try
