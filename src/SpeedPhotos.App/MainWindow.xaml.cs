@@ -35,10 +35,6 @@ namespace SpeedPhotos.App
             DrawEmptyPage();
             LoadPrinters();
 
-            // Permite abrir una o varias imágenes desde el menú contextual del Explorador.
-            string[] startupFiles = Environment.GetCommandLineArgs();
-            if (startupFiles.Length > 1)
-                AddPhotoFiles(startupFiles.Skip(1));
         }
 
         private void ImportPhotos_Click(object sender, RoutedEventArgs e)
@@ -73,25 +69,54 @@ namespace SpeedPhotos.App
             e.Handled = true;
         }
 
+        public void ImportExternalFiles(IEnumerable<string> files)
+        {
+            AddPhotoFiles(files);
+        }
+
         private void AddPhotoFiles(IEnumerable<string> files)
         {
+            if (files == null) return;
+
             int added = 0;
             int rejected = 0;
+            string firstError = null;
+            var knownPaths = new HashSet<string>(
+                _photos.Select(p => p.FilePath), StringComparer.OrdinalIgnoreCase);
+
             foreach (string file in files)
             {
                 try
                 {
-                    string extension = System.IO.Path.GetExtension(file).ToLowerInvariant();
-                    if (extension != ".jpg" && extension != ".jpeg" && extension != ".png" &&
-                        extension != ".bmp" && extension != ".tif" && extension != ".tiff")
+                    if (String.IsNullOrWhiteSpace(file))
                     {
                         rejected++;
                         continue;
                     }
 
+                    string fullPath = System.IO.Path.GetFullPath(file.Trim().Trim('"'));
+                    if (!System.IO.File.Exists(fullPath))
+                    {
+                        rejected++;
+                        if (firstError == null) firstError = "No existe el archivo: " + fullPath;
+                        continue;
+                    }
+
+                    string extension = System.IO.Path.GetExtension(fullPath).ToLowerInvariant();
+                    if (extension != ".jpg" && extension != ".jpeg" && extension != ".png" &&
+                        extension != ".bmp" && extension != ".tif" && extension != ".tiff")
+                    {
+                        rejected++;
+                        if (firstError == null) firstError = "Formato no compatible: " + fullPath;
+                        continue;
+                    }
+
+                    if (!knownPaths.Add(fullPath))
+                        continue;
+
                     var bitmap = new BitmapImage();
                     bitmap.BeginInit();
-                    bitmap.UriSource = new Uri(file);
+                    bitmap.UriSource = new Uri(fullPath, UriKind.Absolute);
                     bitmap.DecodePixelWidth = 180;
                     bitmap.CacheOption = BitmapCacheOption.OnLoad;
                     bitmap.EndInit();
@@ -99,19 +124,34 @@ namespace SpeedPhotos.App
 
                     _photos.Add(new PhotoItem
                     {
-                        FileName = System.IO.Path.GetFileName(file),
-                        FilePath = file,
+                        FileName = System.IO.Path.GetFileName(fullPath),
+                        FilePath = fullPath,
                         Thumbnail = bitmap,
                         PixelWidth = bitmap.PixelWidth,
                         PixelHeight = bitmap.PixelHeight
                     });
                     added++;
                 }
-                catch { rejected++; }
+                catch (Exception ex)
+                {
+                    rejected++;
+                    if (firstError == null)
+                        firstError = file + Environment.NewLine + ex.Message;
+                }
             }
 
-            StatusText.Text = added + " fotografía(s) importada(s). Total: " + _photos.Count +
-                (rejected > 0 ? ". " + rejected + " archivo(s) omitido(s) por formato no compatible o error de lectura." : ".");
+            if (added > 0)
+            {
+                StatusText.Text = added + " fotografía(s) importada(s). Total: " + _photos.Count +
+                    (rejected > 0 ? ". " + rejected + " archivo(s) no se pudieron importar." : ".");
+            }
+            else if (rejected > 0)
+            {
+                StatusText.Text = "No se pudo importar ninguna fotografía.";
+                MessageBox.Show(this, "No se pudieron importar los archivos recibidos desde Windows.\n\n" +
+                    (firstError ?? "Comprueba que los archivos sean imágenes compatibles y que estén disponibles."),
+                    "SpeedPhotos - Error al importar", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         private void TogglePrintSettings_Click(object sender, RoutedEventArgs e)
