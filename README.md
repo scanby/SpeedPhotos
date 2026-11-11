@@ -82,7 +82,7 @@ Después de compilar la aplicación, abre PowerShell en la carpeta del repositor
 .\installer\Register-ContextMenu.ps1 -ExePath ".\src\SpeedPhotos.App\bin\Debug\SpeedPhotos.exe"
 ```
 
-Luego selecciona una o varias imágenes en el Explorador, haz clic derecho y elige **Abrir con SpeedPhotos**. En Windows 11, la opción puede estar dentro de **Mostrar más opciones**.
+Luego selecciona una o varias imágenes en el Explorador, haz clic derecho y elige **Abrir con SpeedPhotos**. SpeedPhotos reutiliza una sola ventana y agrega las imágenes recibidas a la lista actual. En Windows 11, la opción puede estar dentro de **Mostrar más opciones**.
 
 Para quitar la opción del menú contextual:
 
