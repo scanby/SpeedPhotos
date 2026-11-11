@@ -38,7 +38,7 @@ Name: "{autodesktop}\SpeedPhotos"; Filename: "{app}\SpeedPhotos.exe"; WorkingDir
 Root: HKCU; Subkey: "Software\Classes\SystemFileAssociations\image\shell\OpenWithSpeedPhotos"; ValueType: string; ValueName: ""; ValueData: "Abrir con SpeedPhotos"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\SystemFileAssociations\image\shell\OpenWithSpeedPhotos"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\SpeedPhotos.exe"
 Root: HKCU; Subkey: "Software\Classes\SystemFileAssociations\image\shell\OpenWithSpeedPhotos"; ValueType: string; ValueName: "MultiSelectModel"; ValueData: "Player"
-Root: HKCU; Subkey: "Software\Classes\SystemFileAssociations\image\shell\OpenWithSpeedPhotos\command"; ValueType: string; ValueName: ""; ValueData: """{app}\SpeedPhotos.exe"" %*"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\SystemFileAssociations\image\shell\OpenWithSpeedPhotos\command"; ValueType: string; ValueName: ""; ValueData: """{app}\SpeedPhotos.exe"" ""%1"""; Flags: uninsdeletekey
 
 [Run]
 Filename: "{app}\SpeedPhotos.exe"; Description: "Iniciar SpeedPhotos"; Flags: postinstall nowait skipifsilent
