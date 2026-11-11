@@ -17,7 +17,7 @@ New-ItemProperty -Path $keyPath -Name "MultiSelectModel" -Value "Player" -Proper
 
 $commandPath = Join-Path $keyPath "command"
 New-Item -Path $commandPath -Force | Out-Null
-Set-Item -Path $commandPath -Value ('"' + $resolvedExe + '" %*')
+Set-Item -Path $commandPath -Value ('"' + $resolvedExe + '" "%1"')
 
 Write-Host "Menú contextual instalado correctamente para el usuario actual."
 Write-Host "Ejecutable: $resolvedExe"
