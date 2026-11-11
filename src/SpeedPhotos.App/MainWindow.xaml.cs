@@ -215,23 +215,91 @@ namespace SpeedPhotos.App
             try
             {
                 var server = new LocalPrintServer();
-                PrintQueue defaultQueue = server.DefaultPrintQueue;
-                foreach (PrintQueue queue in server.GetPrintQueues())
+                string defaultPrinterName = null;
+                try
                 {
-                    queue.Refresh();
-                    var item = new ComboBoxItem { Content = queue.Name, Tag = queue };
+                    PrintQueue defaultQueue = server.DefaultPrintQueue;
+                    if (defaultQueue != null) defaultPrinterName = defaultQueue.FullName;
+                }
+                catch { }
+
+                var queues = new Dictionary<string, PrintQueue>(StringComparer.OrdinalIgnoreCase);
+
+                // Enumerar colas locales y conexiones de red/compartidas registradas en Windows.
+                try
+                {
+                    PrintQueue[] discovered = server.GetPrintQueues(new[]
+                    {
+                        EnumeratedPrintQueueTypes.Local,
+                        EnumeratedPrintQueueTypes.Connections
+                    });
+                    foreach (PrintQueue queue in discovered)
+                    {
+                        try
+                        {
+                            queue.Refresh();
+                            string key = queue.FullName;
+                            if (!String.IsNullOrWhiteSpace(key) && !queues.ContainsKey(key))
+                                queues.Add(key, queue);
+                        }
+                        catch { }
+                    }
+                }
+                catch { }
+
+                // Respaldo: la lista de impresoras instaladas que expone Windows.
+                // Esto ayuda a incluir colas USB, compartidas y conexiones que el servidor
+                // de impresión no haya devuelto en la primera enumeración.
+                try
+                {
+                    foreach (string installedName in System.Drawing.Printing.PrinterSettings.InstalledPrinters)
+                    {
+                        if (String.IsNullOrWhiteSpace(installedName)) continue;
+                        bool exists = queues.Keys.Any(k =>
+                            String.Equals(k, installedName, StringComparison.OrdinalIgnoreCase) ||
+                            String.Equals(k, installedName, StringComparison.OrdinalIgnoreCase));
+                        if (exists) continue;
+
+                        try
+                        {
+                            PrintQueue queue = server.GetPrintQueue(installedName);
+                            queue.Refresh();
+                            string key = queue.FullName;
+                            if (!String.IsNullOrWhiteSpace(key) && !queues.ContainsKey(key))
+                                queues.Add(key, queue);
+                        }
+                        catch
+                        {
+                            // Una cola puede estar desconectada o no permitir consultar
+                            // sus capacidades; se conserva el resto de impresoras.
+                        }
+                    }
+                }
+                catch { }
+
+                foreach (PrintQueue queue in queues.Values.OrderBy(q => q.Name, StringComparer.CurrentCultureIgnoreCase))
+                {
+                    var item = new ComboBoxItem
+                    {
+                        Content = String.IsNullOrWhiteSpace(queue.Name) ? queue.FullName : queue.Name,
+                        ToolTip = queue.FullName,
+                        Tag = queue
+                    };
                     PrinterCombo.Items.Add(item);
-                    if (defaultQueue != null && queue.FullName == defaultQueue.FullName)
+                    if (!String.IsNullOrWhiteSpace(defaultPrinterName) &&
+                        String.Equals(queue.FullName, defaultPrinterName, StringComparison.OrdinalIgnoreCase))
                         PrinterCombo.SelectedItem = item;
                 }
+
                 if (PrinterCombo.SelectedIndex < 0 && PrinterCombo.Items.Count > 0)
                     PrinterCombo.SelectedIndex = 0;
+
                 if (PrinterCombo.Items.Count == 0)
-                    PrinterStatusText.Text = "Windows no reporta impresoras instaladas.";
+                    PrinterStatusText.Text = "Windows no reporta impresoras instaladas. Comprueba que estén agregadas en Configuración de Windows.";
             }
             catch (Exception ex)
             {
-                PrinterStatusText.Text = "No se pudieron consultar las impresoras: " + ex.Message;
+                PrinterStatusText.Text = "No se pudieron consultar las impresoras instaladas en Windows: " + ex.Message;
             }
             _loadingPrinterOptions = false;
             if (PrinterCombo.SelectedItem != null) PrinterCombo_SelectionChanged(this, null);
@@ -253,7 +321,7 @@ namespace SpeedPhotos.App
             {
                 _selectedPrinter.Refresh();
                 _printerCapabilities = _selectedPrinter.GetPrintCapabilities();
-                AddCapabilityOptions(PaperSizeCombo, _printerCapabilities.PageMediaSizeCapability);
+                AddPaperSizeOptions(_printerCapabilities.PageMediaSizeCapability);
                 AddCapabilityOptions(PaperTypeCombo, _printerCapabilities.PageMediaTypeCapability);
                 AddCapabilityOptions(PrintQualityCombo, _printerCapabilities.PageResolutionCapability);
                 AddDuplexOptions(_printerCapabilities.DuplexingCapability);
@@ -295,6 +363,77 @@ namespace SpeedPhotos.App
             {
                 combo.Items.Add(new ComboBoxItem { Content = value.ToString(), Tag = value });
             }
+        }
+
+        private void AddPaperSizeOptions(IList<PageMediaSize> sizes)
+        {
+            PaperSizeCombo.Items.Clear();
+            if (sizes == null) return;
+
+            var unique = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (PageMediaSize size in sizes)
+            {
+                if (size == null) continue;
+                string label = FormatPaperSize(size);
+                string key = size.PageMediaSizeName.HasValue
+                    ? size.PageMediaSizeName.Value.ToString()
+                    : label;
+                if (size.Width.HasValue && size.Height.HasValue)
+                    key += "|" + Math.Round(size.Width.Value, 1) + "|" + Math.Round(size.Height.Value, 1);
+                if (!unique.Add(key)) continue;
+
+                PaperSizeCombo.Items.Add(new ComboBoxItem
+                {
+                    Content = label,
+                    Tag = size,
+                    ToolTip = label
+                });
+            }
+        }
+
+        private static string FormatPaperSize(PageMediaSize size)
+        {
+            string name = size.PageMediaSizeName.HasValue
+                ? size.PageMediaSizeName.Value.ToString()
+                : String.Empty;
+
+            var friendlyNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "ISOA0", "A0" }, { "ISOA1", "A1" }, { "ISOA2", "A2" },
+                { "ISOA3", "A3" }, { "ISOA4", "A4" }, { "ISOA5", "A5" },
+                { "ISOA6", "A6" }, { "ISOA7", "A7" }, { "ISOA8", "A8" },
+                { "ISOA9", "A9" }, { "ISOA10", "A10" },
+                { "ISOB0", "B0" }, { "ISOB1", "B1" }, { "ISOB2", "B2" },
+                { "ISOB3", "B3" }, { "ISOB4", "B4" }, { "ISOB5", "B5" },
+                { "ISOB6", "B6" }, { "ISOB7", "B7" }, { "ISOB8", "B8" },
+                { "ISOB9", "B9" }, { "ISOB10", "B10" },
+                { "JISB0", "JIS B0" }, { "JISB1", "JIS B1" }, { "JISB2", "JIS B2" },
+                { "JISB3", "JIS B3" }, { "JISB4", "JIS B4" }, { "JISB5", "JIS B5" },
+                { "JISB6", "JIS B6" }, { "NorthAmericaLetter", "Carta (Letter)" },
+                { "NorthAmericaLegal", "Legal" }, { "NorthAmericaTabloid", "Tabloide" },
+                { "NorthAmericaExecutive", "Ejecutivo" }, { "NorthAmericaStatement", "Statement" },
+                { "NorthAmericaLetterPlus", "Carta Plus" }, { "NorthAmericaSuperA", "Super A" },
+                { "NorthAmericaSuperB", "Super B" }, { "NorthAmericaPostcard", "Postal" },
+                { "NorthAmericaNumber10Envelope", "Sobre n.º 10" },
+                { "NorthAmericaMonarchEnvelope", "Sobre Monarch" },
+                { "NorthAmericaPersonalEnvelope", "Sobre Personal" }
+            };
+
+            string displayName;
+            if (!friendlyNames.TryGetValue(name, out displayName))
+                displayName = String.IsNullOrWhiteSpace(name)
+                    ? "Tamaño personalizado"
+                    : name.Replace("NorthAmerica", "").Replace("ISO", "").Replace("JIS", "JIS ");
+
+            if (size.Width.HasValue && size.Height.HasValue)
+            {
+                double widthMm = size.Width.Value * 25.4 / Dpi;
+                double heightMm = size.Height.Value * 25.4 / Dpi;
+                return displayName + " — " + Math.Round(widthMm) + " × " +
+                    Math.Round(heightMm) + " mm";
+            }
+
+            return displayName;
         }
 
         private static void SetDefaultCapability(ComboBox combo, object value)
