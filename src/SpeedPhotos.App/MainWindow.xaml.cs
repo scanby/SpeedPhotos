@@ -228,12 +228,11 @@ namespace SpeedPhotos.App
                 // Enumerar colas locales y conexiones de red/compartidas registradas en Windows.
                 try
                 {
-                    PrintQueue[] discovered = server.GetPrintQueues(new[]
+                    foreach (PrintQueue queue in server.GetPrintQueues(new[]
                     {
                         EnumeratedPrintQueueTypes.Local,
                         EnumeratedPrintQueueTypes.Connections
-                    });
-                    foreach (PrintQueue queue in discovered)
+                    }))
                     {
                         try
                         {
