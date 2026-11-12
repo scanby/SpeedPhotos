@@ -9,11 +9,15 @@
           <Viewbox Stretch="Uniform"><Border Width="225" Height="300" Background="#CBD5E1" ClipToBounds="True">
             <Canvas x:Name="PhotoCropCanvas" Width="225" Height="300" ClipToBounds="True" Background="#CBD5E1">
               <Image x:Name="PhotoPreview" Stretch="Fill" MouseLeftButtonDown="PhotoPreview_MouseLeftButtonDown" MouseMove="PhotoPreview_MouseMove" MouseLeftButtonUp="PhotoPreview_MouseLeftButtonUp"/>
+              <Border x:Name="ResizeTopLeft" Tag="TopLeft" Width="14" Height="14" Canvas.Left="0" Canvas.Top="0" Background="#2563EB" BorderBrush="White" BorderThickness="2" Cursor="SizeNWSE" Panel.ZIndex="10" MouseLeftButtonDown="ResizeHandle_MouseLeftButtonDown" MouseMove="ResizeHandle_MouseMove" MouseLeftButtonUp="ResizeHandle_MouseLeftButtonUp"/>
+              <Border x:Name="ResizeTopRight" Tag="TopRight" Width="14" Height="14" Canvas.Left="211" Canvas.Top="0" Background="#2563EB" BorderBrush="White" BorderThickness="2" Cursor="SizeNESW" Panel.ZIndex="10" MouseLeftButtonDown="ResizeHandle_MouseLeftButtonDown" MouseMove="ResizeHandle_MouseMove" MouseLeftButtonUp="ResizeHandle_MouseLeftButtonUp"/>
+              <Border x:Name="ResizeBottomLeft" Tag="BottomLeft" Width="14" Height="14" Canvas.Left="0" Canvas.Top="286" Background="#2563EB" BorderBrush="White" BorderThickness="2" Cursor="SizeNESW" Panel.ZIndex="10" MouseLeftButtonDown="ResizeHandle_MouseLeftButtonDown" MouseMove="ResizeHandle_MouseMove" MouseLeftButtonUp="ResizeHandle_MouseLeftButtonUp"/>
+              <Border x:Name="ResizeBottomRight" Tag="BottomRight" Width="14" Height="14" Canvas.Left="211" Canvas.Top="286" Background="#2563EB" BorderBrush="White" BorderThickness="2" Cursor="SizeNWSE" Panel.ZIndex="10" MouseLeftButtonDown="ResizeHandle_MouseLeftButtonDown" MouseMove="ResizeHandle_MouseMove" MouseLeftButtonUp="ResizeHandle_MouseLeftButtonUp"/>
             </Canvas>
           </Border></Viewbox>
         </Border>
         <TextBlock x:Name="PhotoInfoText" Text="No hay fotografía seleccionada." Foreground="#64748B" TextWrapping="Wrap"/>
-        <TextBlock Text="Arrastra la fotografía dentro del marco para ajustar el encuadre. La imagen no se deforma." Foreground="#64748B" TextWrapping="Wrap" Margin="0,10,0,8"/>
+        <TextBlock Text="Arrastra la fotografía para moverla. Usa los cuadros azules de las esquinas para acercar o alejar sin deformarla." Foreground="#64748B" TextWrapping="Wrap" Margin="0,10,0,8"/>
         <Button x:Name="CenterCropButton" Content="Centrar encuadre" Padding="8,6" IsEnabled="False" Click="CenterCrop_Click" HorizontalAlignment="Left"/>
         <Separator Margin="0,16,0,12"/>
         <TextBlock Text="2. HOJA DE IMPRESIÓN" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,10"/>
