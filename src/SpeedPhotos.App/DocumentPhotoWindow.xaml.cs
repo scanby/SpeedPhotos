@@ -19,6 +19,12 @@ namespace SpeedPhotos.App
         private double _paperWidthCm = 21.59;
         private double _paperHeightCm = 27.94;
         private double _previewScale;
+        private double _basePreviewScale;
+        private double _zoom = 1.0;
+        private bool _isResizing;
+        private string _resizeCorner;
+        private Point _resizeStart;
+        private double _resizeStartZoom;
         private double _imageLeft;
         private double _imageTop;
         private Point _dragStart;
@@ -68,8 +74,10 @@ namespace SpeedPhotos.App
         private void CenterImageInFrame()
         {
             if (_photo == null) return;
-            _previewScale = Math.Max(PreviewWidth / _photo.PixelWidth, PreviewHeight / _photo.PixelHeight);
+            _basePreviewScale = Math.Max(PreviewWidth / _photo.PixelWidth, PreviewHeight / _photo.PixelHeight);
+            _zoom = 1.0;
             PhotoPreview.Source = _photo;
+            _previewScale = _basePreviewScale;
             PhotoPreview.Width = _photo.PixelWidth * _previewScale;
             PhotoPreview.Height = _photo.PixelHeight * _previewScale;
             _imageLeft = (PreviewWidth - PhotoPreview.Width) / 2.0;
@@ -84,6 +92,52 @@ namespace SpeedPhotos.App
             _imageTop = Math.Min(0, Math.Max(PreviewHeight - PhotoPreview.Height, _imageTop));
             Canvas.SetLeft(PhotoPreview, _imageLeft);
             Canvas.SetTop(PhotoPreview, _imageTop);
+        }
+
+        private void ResizeHandle_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (_photo == null) return;
+            var handle = sender as FrameworkElement;
+            if (handle == null) return;
+            _isResizing = true;
+            _resizeCorner = Convert.ToString(handle.Tag, CultureInfo.InvariantCulture);
+            _resizeStart = e.GetPosition(PhotoCropCanvas);
+            _resizeStartZoom = _zoom;
+            handle.CaptureMouse();
+            e.Handled = true;
+        }
+
+        private void ResizeHandle_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!_isResizing || _photo == null) return;
+            Point current = e.GetPosition(PhotoCropCanvas);
+            double dx = current.X - _resizeStart.X;
+            double dy = current.Y - _resizeStart.Y;
+            double directionX = _resizeCorner.Contains("Left") ? -1.0 : 1.0;
+            double directionY = _resizeCorner.Contains("Top") ? -1.0 : 1.0;
+            double outwardDistance = (dx * directionX + dy * directionY) / 2.0;
+            double nextZoom = _resizeStartZoom * Math.Exp(outwardDistance / 220.0);
+            _zoom = Math.Max(1.0, Math.Min(5.0, nextZoom));
+
+            double oldCenterX = _imageLeft + PhotoPreview.Width / 2.0;
+            double oldCenterY = _imageTop + PhotoPreview.Height / 2.0;
+            _previewScale = _basePreviewScale * _zoom;
+            PhotoPreview.Width = _photo.PixelWidth * _previewScale;
+            PhotoPreview.Height = _photo.PixelHeight * _previewScale;
+            _imageLeft = oldCenterX - PhotoPreview.Width / 2.0;
+            _imageTop = oldCenterY - PhotoPreview.Height / 2.0;
+            ApplyImagePosition();
+        }
+
+        private void ResizeHandle_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (!_isResizing) return;
+            _isResizing = false;
+            var handle = sender as UIElement;
+            if (handle != null) handle.ReleaseMouseCapture();
+            RenderSheet();
+            StatusText.Text = "Ampliación y encuadre actualizados. La hoja de impresión usa el mismo recorte.";
+            e.Handled = true;
         }
 
         private void PhotoPreview_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
