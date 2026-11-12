@@ -3,7 +3,7 @@
     <Border DockPanel.Dock="Top" Background="#172033" Padding="18,12"><DockPanel>
       <TextBlock Text="SpeedPhotos" Foreground="White" FontSize="23" FontWeight="Bold" VerticalAlignment="Center"/>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-        <Button Content="＋ Importar fotografías" Padding="14,8" Margin="8,0,0,0" Click="ImportPhotos_Click"/>
+        <Button Content="＋ Importar fotografías" Padding="14,8" Margin="8,0,0,0" Click="ImportPhotos_Click"/><Button Content="▣ Foto 3 × 4" Padding="14,8" Margin="8,0,0,0" Background="#DBEAFE" Click="DocumentPhoto_Click"/>
         <Button Content="🖨 Impresora" Padding="14,8" Margin="8,0,0,0" Click="TogglePrintSettings_Click"/><Button Content="⇩ Exportar" Padding="14,8" Margin="8,0,0,0" Click="Export_Click"/><Button x:Name="CheckUpdatesButton" Content="↻ Buscar actualizaciones" Padding="14,8" Margin="8,0,0,0" Click="CheckUpdates_Click"/><Button Content="Limpiar selección" Padding="14,8" Margin="8,0,0,0" Click="ClearPhotos_Click"/>
       </StackPanel>
     </DockPanel></Border>
