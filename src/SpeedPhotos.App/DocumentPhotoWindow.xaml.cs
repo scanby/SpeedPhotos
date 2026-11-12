@@ -74,6 +74,10 @@ namespace SpeedPhotos.App
         private void CenterImageInFrame()
         {
             if (_photo == null) return;
+            ResizeTopLeft.Visibility = Visibility.Visible;
+            ResizeTopRight.Visibility = Visibility.Visible;
+            ResizeBottomLeft.Visibility = Visibility.Visible;
+            ResizeBottomRight.Visibility = Visibility.Visible;
             _basePreviewScale = Math.Max(PreviewWidth / _photo.PixelWidth, PreviewHeight / _photo.PixelHeight);
             _zoom = 1.0;
             PhotoPreview.Source = _photo;
