@@ -21,7 +21,7 @@
         <Button x:Name="CenterCropButton" Content="Centrar encuadre" Padding="8,6" IsEnabled="False" Click="CenterCrop_Click" HorizontalAlignment="Left"/>
         <Separator Margin="0,16,0,12"/>
         <TextBlock Text="2. HOJA DE IMPRESIÓN" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,10"/>
-        <TextBlock Text="Tamaño de papel"/><ComboBox x:Name="PaperCombo" SelectedIndex="0" Margin="0,5,0,10" Padding="6" SelectionChanged="PaperCombo_SelectionChanged"><ComboBoxItem Content="Carta (21,59 × 27,94 cm)"/><ComboBoxItem Content="A4 (21 × 29,7 cm)"/><ComboBoxItem Content="Oficio (21,59 × 33,02 cm)"/></ComboBox>
+        <TextBlock Text="Tamaño de papel"/><ComboBox x:Name="PaperCombo" SelectedIndex="1" Margin="0,5,0,10" Padding="6" SelectionChanged="PaperCombo_SelectionChanged"><ComboBoxItem Content="Carta (21,59 × 27,94 cm)"/><ComboBoxItem Content="A4 (21 × 29,7 cm)"/><ComboBoxItem Content="Oficio (21,59 × 33,02 cm)"/></ComboBox>
         <TextBlock Text="Separación entre fotografías (cm)"/><TextBox x:Name="GapText" Text="0,3" Margin="0,5,0,12" Padding="6" TextChanged="GapText_Changed"/>
         <Button Content="Imprimir hoja completa" Padding="12,10" Background="#16A34A" Foreground="White" BorderThickness="0" Click="Print_Click"/>
         <TextBlock x:Name="StatusText" Text="Importa una fotografía para comenzar." Foreground="#64748B" TextWrapping="Wrap" Margin="0,12,0,0"/>
