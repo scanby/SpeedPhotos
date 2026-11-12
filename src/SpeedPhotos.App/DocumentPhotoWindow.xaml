@@ -2,7 +2,7 @@
   <DockPanel>
     <Border DockPanel.Dock="Top" Background="#172033" Padding="18,12"><StackPanel><TextBlock Text="FOTO PARA DOCUMENTO" Foreground="White" FontSize="21" FontWeight="Bold"/><TextBlock Text="Importa una fotografía y genera copias de 3 × 4 cm listas para imprimir." Foreground="#CBD5E1" Margin="0,4,0,0"/></StackPanel></Border>
     <Grid Margin="18"><Grid.ColumnDefinitions><ColumnDefinition Width="300"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-      <Border Grid.Column="0" Background="White" CornerRadius="8" Padding="16" Margin="0,0,14,0"><StackPanel>
+      <Border Grid.Column="0" Background="White" CornerRadius="8" Padding="16" Margin="0,0,14,0"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel>
         <TextBlock Text="1. FOTOGRAFÍA" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,12"/>
         <Button Content="＋ Importar fotografía" Padding="12,9" Background="#2563EB" Foreground="White" BorderThickness="0" Click="ImportPhoto_Click"/>
         <Border Background="#E9EEF5" Height="250" Margin="0,14,0,8" Padding="8">
@@ -25,7 +25,7 @@
         <TextBlock Text="Separación entre fotografías (cm)"/><TextBox x:Name="GapText" Text="0.3" Margin="0,5,0,12" Padding="6" TextChanged="GapText_Changed"/>
         <Button Content="Imprimir hoja completa" Padding="12,10" Background="#16A34A" Foreground="White" BorderThickness="0" Click="Print_Click"/>
         <TextBlock x:Name="StatusText" Text="Importa una fotografía para comenzar." Foreground="#64748B" TextWrapping="Wrap" Margin="0,12,0,0"/>
-      </StackPanel></Border>
+      </StackPanel></ScrollViewer></Border>
       <Border Grid.Column="1" Background="White" CornerRadius="8" Padding="16"><DockPanel>
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12"><TextBlock Text="VISTA PREVIA DE LA HOJA" FontWeight="Bold" Foreground="#475569"/><TextBlock x:Name="LayoutInfoText" Text="Cada fotografía mide exactamente 3 × 4 cm." Foreground="#64748B" Margin="0,4,0,0"/></StackPanel>
         <Border Background="#E9EEF5" Padding="14" BorderBrush="#CBD5E1" BorderThickness="1"><Viewbox Stretch="Uniform"><Canvas x:Name="SheetCanvas" Width="816" Height="1056" Background="White"/></Viewbox></Border>
