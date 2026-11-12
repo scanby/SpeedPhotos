@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Printing;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -12,9 +13,18 @@ namespace SpeedPhotos.App
     public partial class DocumentPhotoWindow : Window
     {
         private const double Dpi = 96.0;
+        private const double PreviewWidth = 225.0;
+        private const double PreviewHeight = 300.0;
         private BitmapSource _photo;
         private double _paperWidthCm = 21.59;
         private double _paperHeightCm = 27.94;
+        private double _previewScale;
+        private double _imageLeft;
+        private double _imageTop;
+        private Point _dragStart;
+        private double _dragImageLeft;
+        private double _dragImageTop;
+        private bool _isDragging;
 
         public DocumentPhotoWindow()
         {
@@ -41,10 +51,11 @@ namespace SpeedPhotos.App
                 bitmap.EndInit();
                 bitmap.Freeze();
                 _photo = bitmap;
-                PhotoPreview.Source = _photo;
+                CenterImageInFrame();
                 PhotoInfoText.Text = System.IO.Path.GetFileName(dialog.FileName) + Environment.NewLine +
                     bitmap.PixelWidth + " × " + bitmap.PixelHeight + " píxeles";
-                StatusText.Text = "Fotografía cargada. Revisa el encuadre y la distribución.";
+                CenterCropButton.IsEnabled = true;
+                StatusText.Text = "Fotografía cargada. Arrastra la imagen para ajustar el encuadre.";
                 RenderSheet();
             }
             catch (Exception ex)
@@ -52,6 +63,86 @@ namespace SpeedPhotos.App
                 MessageBox.Show(this, "No se pudo abrir la fotografía.\n\n" + ex.Message,
                     "SpeedPhotos", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
+        }
+
+        private void CenterImageInFrame()
+        {
+            if (_photo == null) return;
+            _previewScale = Math.Max(PreviewWidth / _photo.PixelWidth, PreviewHeight / _photo.PixelHeight);
+            PhotoPreview.Width = _photo.PixelWidth * _previewScale;
+            PhotoPreview.Height = _photo.PixelHeight * _previewScale;
+            _imageLeft = (PreviewWidth - PhotoPreview.Width) / 2.0;
+            _imageTop = (PreviewHeight - PhotoPreview.Height) / 2.0;
+            ApplyImagePosition();
+        }
+
+        private void ApplyImagePosition()
+        {
+            if (_photo == null) return;
+            _imageLeft = Math.Min(0, Math.Max(PreviewWidth - PhotoPreview.Width, _imageLeft));
+            _imageTop = Math.Min(0, Math.Max(PreviewHeight - PhotoPreview.Height, _imageTop));
+            Canvas.SetLeft(PhotoPreview, _imageLeft);
+            Canvas.SetTop(PhotoPreview, _imageTop);
+        }
+
+        private void PhotoPreview_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (_photo == null) return;
+            _isDragging = true;
+            _dragStart = e.GetPosition(PhotoCropCanvas);
+            _dragImageLeft = _imageLeft;
+            _dragImageTop = _imageTop;
+            PhotoPreview.CaptureMouse();
+            Cursor = Cursors.SizeAll;
+            e.Handled = true;
+        }
+
+        private void PhotoPreview_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!_isDragging || _photo == null) return;
+            Point current = e.GetPosition(PhotoCropCanvas);
+            _imageLeft = _dragImageLeft + current.X - _dragStart.X;
+            _imageTop = _dragImageTop + current.Y - _dragStart.Y;
+            ApplyImagePosition();
+        }
+
+        private void PhotoPreview_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (!_isDragging) return;
+            _isDragging = false;
+            PhotoPreview.ReleaseMouseCapture();
+            Cursor = Cursors.Arrow;
+            e.Handled = true;
+            RenderSheet();
+            StatusText.Text = "Encuadre actualizado. La hoja de impresión usa este mismo recorte.";
+        }
+
+        private void CenterCrop_Click(object sender, RoutedEventArgs e)
+        {
+            CenterImageInFrame();
+            RenderSheet();
+            StatusText.Text = "Encuadre centrado nuevamente.";
+        }
+
+        private Int32Rect GetCropRectangle()
+        {
+            double sourceX = -_imageLeft / _previewScale;
+            double sourceY = -_imageTop / _previewScale;
+            double sourceWidth = PreviewWidth / _previewScale;
+            double sourceHeight = PreviewHeight / _previewScale;
+
+            int x = Math.Max(0, (int)Math.Floor(sourceX));
+            int y = Math.Max(0, (int)Math.Floor(sourceY));
+            int right = Math.Min(_photo.PixelWidth, (int)Math.Ceiling(sourceX + sourceWidth));
+            int bottom = Math.Min(_photo.PixelHeight, (int)Math.Ceiling(sourceY + sourceHeight));
+            return new Int32Rect(x, y, Math.Max(1, right - x), Math.Max(1, bottom - y));
+        }
+
+        private BitmapSource GetFramedPhoto()
+        {
+            var cropped = new CroppedBitmap(_photo, GetCropRectangle());
+            cropped.Freeze();
+            return cropped;
         }
 
         private void PaperCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -97,10 +188,11 @@ namespace SpeedPhotos.App
 
             if (_photo != null)
             {
+                BitmapSource framedPhoto = GetFramedPhoto();
                 for (int row = 0; row < rows; row++)
                 for (int col = 0; col < columns; col++)
                 {
-                    var image = new Image { Source = _photo, Width = photoW, Height = photoH, Stretch = Stretch.UniformToFill };
+                    var image = new Image { Source = framedPhoto, Width = photoW, Height = photoH, Stretch = Stretch.Fill };
                     Canvas.SetLeft(image, startX + col * (photoW + gap));
                     Canvas.SetTop(image, startY + row * (photoH + gap));
                     SheetCanvas.Children.Add(image);
@@ -130,30 +222,13 @@ namespace SpeedPhotos.App
                 double usedH = rows * photoH + Math.Max(0, rows - 1) * gap;
                 double startX = (pageWidthDip - usedW) / 2.0;
                 double startY = (pageHeightDip - usedH) / 2.0;
-                double sourceRatio = (double)_photo.PixelWidth / _photo.PixelHeight;
-                double targetRatio = 3.0 / 4.0;
-                double sourceX = 0, sourceY = 0, sourceW = _photo.PixelWidth, sourceH = _photo.PixelHeight;
-                if (sourceRatio > targetRatio)
-                {
-                    sourceW = _photo.PixelHeight * targetRatio;
-                    sourceX = (_photo.PixelWidth - sourceW) / 2.0;
-                }
-                else
-                {
-                    sourceH = _photo.PixelWidth / targetRatio;
-                    sourceY = (_photo.PixelHeight - sourceH) / 2.0;
-                }
-                var cropped = new CroppedBitmap(_photo, new Int32Rect(
-                    Math.Max(0, (int)Math.Round(sourceX)),
-                    Math.Max(0, (int)Math.Round(sourceY)),
-                    Math.Max(1, Math.Min(_photo.PixelWidth - (int)Math.Round(sourceX), (int)Math.Round(sourceW))),
-                    Math.Max(1, Math.Min(_photo.PixelHeight - (int)Math.Round(sourceY), (int)Math.Round(sourceH)))));
-                cropped.Freeze();
+                BitmapSource framedPhoto = GetFramedPhoto();
+
                 for (int row = 0; row < rows; row++)
                 for (int col = 0; col < columns; col++)
                 {
                     var rect = new Rect(startX + col * (photoW + gap), startY + row * (photoH + gap), photoW, photoH);
-                    dc.DrawImage(cropped, rect);
+                    dc.DrawImage(framedPhoto, rect);
                 }
             }
             return visual;
