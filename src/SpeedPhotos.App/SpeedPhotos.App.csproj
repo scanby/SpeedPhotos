@@ -26,6 +26,8 @@
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></ApplicationDefinition>
     <Page Include="MainWindow.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
+    <Page Include="DocumentPhotoWindow.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
+    <Compile Include="DocumentPhotoWindow.xaml.cs"><DependentUpon>DocumentPhotoWindow.xaml</DependentUpon></Compile>
     <Compile Include="UpdateService.cs" />
     <Compile Include="ExportService.cs" />
     <Compile Include="App.xaml.cs"><DependentUpon>App.xaml</DependentUpon></Compile>
