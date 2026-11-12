@@ -37,6 +37,12 @@ namespace SpeedPhotos.App
 
         }
 
+        private void DocumentPhoto_Click(object sender, RoutedEventArgs e)
+        {
+            var window = new DocumentPhotoWindow { Owner = this };
+            window.ShowDialog();
+        }
+
         private void ImportPhotos_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFileDialog { Title = "Seleccionar fotografías", Filter = "Archivos de imagen|*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff|Todos los archivos|*.*", Multiselect = true };
