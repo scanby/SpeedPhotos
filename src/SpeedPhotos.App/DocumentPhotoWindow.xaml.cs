@@ -222,8 +222,13 @@ namespace SpeedPhotos.App
         private double GetGap()
         {
             double value;
-            if (!Double.TryParse(GapText.Text, NumberStyles.Number, CultureInfo.CurrentCulture, out value))
-                Double.TryParse(GapText.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out value);
+            string text = (GapText.Text ?? string.Empty).Trim();
+            if (text.IndexOf(',') >= 0 && text.IndexOf('.') < 0)
+                text = text.Replace(',', '.');
+
+            if (!Double.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value))
+                value = 0.3;
+
             return Math.Max(0, Math.Min(2, value));
         }
 
