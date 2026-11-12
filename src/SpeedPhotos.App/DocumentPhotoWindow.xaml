@@ -5,9 +5,16 @@
       <Border Grid.Column="0" Background="White" CornerRadius="8" Padding="16" Margin="0,0,14,0"><StackPanel>
         <TextBlock Text="1. FOTOGRAFÍA" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,12"/>
         <Button Content="＋ Importar fotografía" Padding="12,9" Background="#2563EB" Foreground="White" BorderThickness="0" Click="ImportPhoto_Click"/>
-        <Border Background="#E9EEF5" Height="250" Margin="0,14,0,8" Padding="8"><Viewbox Stretch="Uniform"><Border Width="225" Height="300" Background="#CBD5E1" ClipToBounds="True"><Image x:Name="PhotoPreview" Stretch="UniformToFill"/></Border></Viewbox></Border>
+        <Border Background="#E9EEF5" Height="250" Margin="0,14,0,8" Padding="8">
+          <Viewbox Stretch="Uniform"><Border Width="225" Height="300" Background="#CBD5E1" ClipToBounds="True">
+            <Canvas x:Name="PhotoCropCanvas" Width="225" Height="300" ClipToBounds="True" Background="#CBD5E1">
+              <Image x:Name="PhotoPreview" Stretch="Fill" MouseLeftButtonDown="PhotoPreview_MouseLeftButtonDown" MouseMove="PhotoPreview_MouseMove" MouseLeftButtonUp="PhotoPreview_MouseLeftButtonUp"/>
+            </Canvas>
+          </Border></Viewbox>
+        </Border>
         <TextBlock x:Name="PhotoInfoText" Text="No hay fotografía seleccionada." Foreground="#64748B" TextWrapping="Wrap"/>
-        <TextBlock Text="El recorte es automático y centrado: conserva la proporción, no estira ni deforma la imagen." Foreground="#64748B" TextWrapping="Wrap" Margin="0,10,0,0"/>
+        <TextBlock Text="Arrastra la fotografía dentro del marco para ajustar el encuadre. La imagen no se deforma." Foreground="#64748B" TextWrapping="Wrap" Margin="0,10,0,8"/>
+        <Button x:Name="CenterCropButton" Content="Centrar encuadre" Padding="8,6" IsEnabled="False" Click="CenterCrop_Click" HorizontalAlignment="Left"/>
         <Separator Margin="0,16,0,12"/>
         <TextBlock Text="2. HOJA DE IMPRESIÓN" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,10"/>
         <TextBlock Text="Tamaño de papel"/><ComboBox x:Name="PaperCombo" SelectedIndex="0" Margin="0,5,0,10" Padding="6" SelectionChanged="PaperCombo_SelectionChanged"><ComboBoxItem Content="Carta (21,59 × 27,94 cm)"/><ComboBoxItem Content="A4 (21 × 29,7 cm)"/><ComboBoxItem Content="Oficio (21,59 × 33,02 cm)"/></ComboBox>
