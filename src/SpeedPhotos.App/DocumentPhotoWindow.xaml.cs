@@ -256,10 +256,25 @@ namespace SpeedPhotos.App
                 for (int row = 0; row < rows; row++)
                 for (int col = 0; col < columns; col++)
                 {
+                    double x = startX + col * (photoW + gap);
+                    double y = startY + row * (photoH + gap);
                     var image = new Image { Source = framedPhoto, Width = photoW, Height = photoH, Stretch = Stretch.Fill };
-                    Canvas.SetLeft(image, startX + col * (photoW + gap));
-                    Canvas.SetTop(image, startY + row * (photoH + gap));
+                    Canvas.SetLeft(image, x);
+                    Canvas.SetTop(image, y);
                     SheetCanvas.Children.Add(image);
+
+                    var outline = new System.Windows.Shapes.Rectangle
+                    {
+                        Width = photoW,
+                        Height = photoH,
+                        Stroke = Brushes.Black,
+                        StrokeThickness = 0.5,
+                        Fill = Brushes.Transparent,
+                        IsHitTestVisible = false
+                    };
+                    Canvas.SetLeft(outline, x);
+                    Canvas.SetTop(outline, y);
+                    SheetCanvas.Children.Add(outline);
                 }
             }
 
@@ -293,6 +308,7 @@ namespace SpeedPhotos.App
                 {
                     var rect = new Rect(startX + col * (photoW + gap), startY + row * (photoH + gap), photoW, photoH);
                     dc.DrawImage(framedPhoto, rect);
+                    dc.DrawRectangle(null, new Pen(Brushes.Black, 0.5), rect);
                 }
             }
             return visual;
