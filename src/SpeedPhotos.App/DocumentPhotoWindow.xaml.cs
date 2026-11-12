@@ -69,6 +69,7 @@ namespace SpeedPhotos.App
         {
             if (_photo == null) return;
             _previewScale = Math.Max(PreviewWidth / _photo.PixelWidth, PreviewHeight / _photo.PixelHeight);
+            PhotoPreview.Source = _photo;
             PhotoPreview.Width = _photo.PixelWidth * _previewScale;
             PhotoPreview.Height = _photo.PixelHeight * _previewScale;
             _imageLeft = (PreviewWidth - PhotoPreview.Width) / 2.0;
